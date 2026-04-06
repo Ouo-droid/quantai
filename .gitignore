@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+dist/
+build/
+
+# Env
+.env
+*.env
+
+# Data / notebooks
+*.ipynb_checkpoints/
+data/cache/
+*.parquet
+*.csv
+
+# uv
+.uv/
+uv.lock
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# DB
+*.db
+*.sqlite

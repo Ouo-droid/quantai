@@ -1,0 +1,38 @@
+name: ci
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: set up python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
+
+      - name: install dependencies
+        run: uv sync --extra dev
+
+      - name: lint (ruff)
+        run: uv run ruff check .
+
+      - name: type check (mypy)
+        run: uv run mypy data/ signals/ execution/
+
+      - name: run tests
+        run: uv run pytest --cov=. --cov-report=term-missing
+        env:
+          OPENBB_API_URL: ${{ secrets.OPENBB_API_URL }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
