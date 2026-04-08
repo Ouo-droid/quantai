@@ -197,7 +197,7 @@ class OpenBBClient:
         """
         raw = self._get(
             "/api/v1/news/company",
-            symbols=symbol,
+            symbol=symbol,
             limit=limit,
             provider=provider,
         )
@@ -282,10 +282,10 @@ class OpenBBClient:
     # ------------------------------------------------------------------
 
     def fundamentals(self, symbol: str) -> FundamentalSnapshot:
-        """Ratios fondamentaux : P/E, P/B, ROE, D/E, market cap."""
+        """Ratios fondamentaux : P/E, P/B, ROE, D/E, market cap (yfinance)."""
         try:
             raw = self._get(
-                "/api/v1/equity/fundamental/ratios",
+                "/api/v1/equity/fundamental/metrics",
                 symbol=symbol,
                 period="annual",
                 limit=1,
@@ -295,9 +295,9 @@ class OpenBBClient:
             return FundamentalSnapshot(
                 symbol=symbol,
                 pe_ratio=r.get("pe_ratio"),
-                pb_ratio=r.get("price_to_book"),
+                pb_ratio=r.get("price_to_book_ratio"),
                 roe=r.get("return_on_equity"),
-                debt_to_equity=r.get("debt_equity_ratio"),
+                debt_to_equity=r.get("debt_to_equity"),
                 market_cap=r.get("market_cap"),
             )
         except Exception as e:
