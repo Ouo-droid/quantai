@@ -18,12 +18,13 @@ Usage :
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 import pandas as pd
 from loguru import logger
 
+from .factors.base import BaseFactor
 from .factors.momentum import (
     MomentumFactor,
     RiskAdjustedMomentum,
@@ -51,7 +52,7 @@ class SignalVector:
     """
 
     symbol: str
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Facteurs quantitatifs
     momentum_3m: float | None = None
@@ -212,11 +213,12 @@ class SignalAggregator:
             agent_bias=agent_bias,
         )
 
-        # Calcul des facteurs individuels
+        # Calcul des facteurs individuels (z-scorés pour cohérence avec le docstring)
         for factor_name, factor in self._factors.items():
             try:
                 raw = factor.compute(prices)
-                last_val = raw.dropna().iloc[-1] if not raw.dropna().empty else None
+                zscored = BaseFactor.zscore(raw)
+                last_val = zscored.dropna().iloc[-1] if not zscored.dropna().empty else None
                 if last_val is not None and pd.notna(last_val):
                     setattr(vector, factor_name, round(float(last_val), 4))
             except Exception as e:

@@ -185,7 +185,7 @@ class OpenBBClient:
         self,
         symbol: str,
         limit: int = 50,
-        provider: str = "benzinga",
+        provider: str = "yfinance",
     ) -> list[NewsItem]:
         """
         Retourne les dernières news d'un symbole.

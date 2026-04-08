@@ -75,6 +75,9 @@ packages = ["data", "signals", "simulation", "execution", "dashboard"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+markers = [
+    "integration: marks tests that require external services (OpenBB, Anthropic API)",
+]
 
 [dependency-groups]
 dev = [

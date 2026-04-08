@@ -41,9 +41,9 @@ class FactorResult:
     def summary(self) -> dict[str, Any]:
         return {
             "factor": self.name,
-            "ic": round(self.ic, 4) if self.ic else None,
-            "t_stat": round(self.t_stat, 3) if self.t_stat else None,
-            "p_value": round(self.p_value, 4) if self.p_value else None,
+            "ic": round(self.ic, 4) if self.ic is not None else None,
+            "t_stat": round(self.t_stat, 3) if self.t_stat is not None else None,
+            "p_value": round(self.p_value, 4) if self.p_value is not None else None,
             "significant": self.is_significant,
             "half_life_days": self.half_life_days,
         }
