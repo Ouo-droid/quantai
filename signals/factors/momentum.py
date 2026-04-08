@@ -122,8 +122,11 @@ class RiskAdjustedMomentum(BaseFactor):
         )
 
         # Volatilité réalisée annualisée
+        # Floor à 1% annualisé : évite l'explosion du signal sur données quasi-constantes
+        # (floating-point noise peut donner vol=1e-15 au lieu de 0 exact)
+        MIN_VOL_ANNUALIZED = 0.01
         realized_vol = returns.rolling(self.vol_window).std() * np.sqrt(252)
-        realized_vol = realized_vol.replace(0, np.nan)
+        realized_vol = realized_vol.clip(lower=MIN_VOL_ANNUALIZED)
 
         signal = past_ret / realized_vol
         signal = self.winsorize(signal)
@@ -243,8 +246,12 @@ def composite_momentum(
     for name, factor in factors.items():
         try:
             raw = factor.compute(prices)
-            # Normalise chaque signal individuellement
-            signals[name] = BaseFactor.zscore(raw)
+            zscored = BaseFactor.zscore(raw)
+            # Skip all-NaN signals (e.g. RAM/Trend on constant-price data)
+            if zscored.dropna().empty:
+                logger.warning(f"composite_momentum: {name} all-NaN — skipping")
+                continue
+            signals[name] = zscored
         except Exception as e:
             logger.warning(f"composite_momentum: {name} failed — {e}")
 
@@ -252,7 +259,11 @@ def composite_momentum(
         raise ValueError("Aucun signal calculable")
 
     df = pd.DataFrame(signals)
-    composite = sum(df[k] * weights.get(k, 0) for k in df.columns)
+    # Renormalize weights to available signals so they always sum to 1.0
+    total_weight = sum(weights.get(k, 0) for k in df.columns)
+    if total_weight == 0:
+        raise ValueError("Somme des poids = 0")
+    composite = sum(df[k] * (weights.get(k, 0) / total_weight) for k in df.columns)
     composite = BaseFactor.zscore(composite)
     composite.name = "composite_momentum"
     return composite

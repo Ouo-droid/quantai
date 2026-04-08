@@ -107,7 +107,16 @@ class SignalVector:
 
     @property
     def composite_score(self) -> float | None:
-        """Score agrégé simple — moyenne des signaux disponibles."""
+        """
+        Score agrégé simple — moyenne des signaux disponibles.
+
+        Note d'échelle : momentum_composite, value, quality, low_volatility
+        sont des z-scores (unbounded), tandis que mirofish_sentiment est en
+        [-1, +1]. Pour éviter le biais d'échelle, mirofish_sentiment est
+        inclus tel quel mais son impact est proportionnel à sa distance de 0
+        (±1 au max). La distorsion est acceptable pour un score de logging.
+        Pour un usage décisionnel, normaliser mirofish_sentiment séparément.
+        """
         values = [
             v for v in [
                 self.momentum_composite,
