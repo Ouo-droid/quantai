@@ -26,6 +26,7 @@ from dotenv import load_dotenv
 from loguru import logger
 
 from signals.aggregator import SignalVector
+from execution.risk import Portfolio, RiskEngine, RiskLimits
 
 load_dotenv()
 
@@ -141,6 +142,21 @@ class DecisionAgent:
             ],
         )
         return message.content[0].text
+
+    def decide_with_risk(
+        self,
+        vector: SignalVector,
+        portfolio: Portfolio,
+        recent_returns: list[float] | None = None,
+        limits: RiskLimits | None = None,
+    ) -> TradeOrder | None:
+        """
+        Pipeline complet : décision LLM → validation risque.
+        Retourne None si le risk engine bloque l'ordre.
+        """
+        order = self.decide(vector)
+        engine = RiskEngine(portfolio, limits or RiskLimits())
+        return engine.validate(order, recent_returns)
 
     def _parse_order(self, raw: str, symbol: str) -> TradeOrder:
         """Parse la réponse JSON de Claude en TradeOrder."""
