@@ -179,6 +179,7 @@ class SignalAggregator:
         macro: pd.DataFrame | None = None,
         mirofish_sentiment: float | None = None,
         agent_bias: float | None = None,
+        use_quantagent: bool = False,
     ) -> SignalVector:
         """
         Args:
@@ -186,7 +187,9 @@ class SignalAggregator:
             symbol             : ticker
             macro              : snapshot macro (output de client.macro_dashboard())
             mirofish_sentiment : score MiroFish (-1 → +1)
-            agent_bias         : biais QuantAgent (-1 → +1)
+            agent_bias         : biais QuantAgent (-1 → +1) passé manuellement
+            use_quantagent     : si True, appelle QuantAgentAdapter pour remplir agent_bias
+                                 (ignoré si agent_bias est déjà fourni)
 
         Returns:
             SignalVector avec toutes les valeurs disponibles
@@ -227,6 +230,21 @@ class SignalAggregator:
                 vector.momentum_composite = round(float(last), 4)
         except Exception as e:
             logger.warning(f"{symbol} / composite_momentum: {e}")
+
+        # Enrichissement QuantAgent (optionnel)
+        if use_quantagent and vector.agent_bias is None:
+            try:
+                from .agents.quantagent_adapter import QuantAgentAdapter
+                adapter = QuantAgentAdapter()
+                if adapter.is_available():
+                    agent_signal = adapter.analyze(prices, symbol)
+                    vector.agent_bias = agent_signal.agent_bias
+                    logger.info(
+                        f"{symbol} / QuantAgent → direction={agent_signal.direction} "
+                        f"bias={agent_signal.agent_bias} latency={agent_signal.latency_ms:.0f}ms"
+                    )
+            except Exception as e:
+                logger.warning(f"{symbol} / QuantAgent: {e}")
 
         # Enrichissement macro
         if macro is not None:

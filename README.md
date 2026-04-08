@@ -75,6 +75,37 @@ quantai/
 | `research/01_momentum_factor.ipynb` | Momentum cross-sectionnel — Sharpe, drawdown, t-stat |
 | (WIP) `research/02_mirofish_macro.ipynb` | MiroFish comme générateur de stress scenarios |
 
+## Agent cluster (QuantAgent)
+
+QuantAgent est intégré comme submodule Git dans `signals/agents/quantagent/`.
+Il fournit une analyse technique visuelle (indicateurs, patterns, tendances)
+via des agents LangGraph avec vision LLM. Sa sortie (`agent_bias`) est injectée
+dans le `SignalVector` avant la décision finale.
+
+```bash
+# Initialiser le submodule après un git clone
+git submodule update --init --recursive
+
+# Installer les dépendances agents
+uv sync --extra agents
+```
+
+```python
+from signals.agents.quantagent_adapter import QuantAgentAdapter
+
+adapter = QuantAgentAdapter(llm_provider="anthropic")  # ou "openai", "qwen", "minimax"
+if adapter.is_available():
+    signal = adapter.analyze(prices_df, symbol="AAPL")
+    print(signal.agent_bias)    # float -1.0 → +1.0
+    print(signal.direction)     # "LONG" | "SHORT" | "FLAT" | "UNKNOWN"
+
+# Intégration directe dans le pipeline de signaux
+from signals.aggregator import SignalAggregator
+agg = SignalAggregator()
+vector = agg.compute(prices_df, symbol="AAPL", use_quantagent=True)
+print(vector.agent_bias)
+```
+
 ## Licence
 
 MIT
