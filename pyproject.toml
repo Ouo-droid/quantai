@@ -36,6 +36,9 @@ dependencies = [
     "streamlit>=1.35.0",
     "plotly>=5.22.0",
 
+    # Broker
+    "alpaca-py>=0.29.0",
+
     # Utils
     "python-dotenv>=1.0.0",
     "loguru>=0.7.0",
