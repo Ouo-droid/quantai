@@ -85,11 +85,10 @@ class AlpacaRouter:
             from alpaca.trading.client import TradingClient
 
             client = TradingClient(APCA_KEY, APCA_SECRET, paper=True)
-            account = client.get_account()
-            logger.info(
-                f"Alpaca paper account : cash=${float(account.cash):,.0f} "
-                f"equity=${float(account.equity):,.0f}"
-            )
+            account: Any = client.get_account()
+            cash = float(account.cash) if hasattr(account, "cash") else float(account.get("cash", 0))
+            equity = float(account.equity) if hasattr(account, "equity") else float(account.get("equity", 0))
+            logger.info(f"Alpaca paper account : cash=${cash:,.0f} equity=${equity:,.0f}")
             return True
         except Exception as e:
             logger.warning(f"Alpaca non disponible : {e}")
@@ -101,14 +100,33 @@ class AlpacaRouter:
             from alpaca.trading.client import TradingClient
 
             client = TradingClient(APCA_KEY, APCA_SECRET, paper=True)
-            acc = client.get_account()
+            acc: Any = client.get_account()
+
+            def _f(val: Any) -> float:
+                return float(val) if val is not None else 0.0
+
+            if isinstance(acc, dict):
+                cash = _f(acc.get("cash"))
+                equity = _f(acc.get("equity"))
+                bp = _f(acc.get("buying_power"))
+                pv = _f(acc.get("portfolio_value"))
+                last_eq = _f(acc.get("last_equity"))
+                status = acc.get("status", "unknown")
+            else:
+                cash = _f(acc.cash)
+                equity = _f(acc.equity)
+                bp = _f(acc.buying_power)
+                pv = _f(acc.portfolio_value)
+                last_eq = _f(acc.last_equity)
+                status = acc.status
+
             return {
-                "cash":            float(acc.cash),
-                "equity":          float(acc.equity),
-                "buying_power":    float(acc.buying_power),
-                "portfolio_value": float(acc.portfolio_value),
-                "pnl_today":       float(acc.equity) - float(acc.last_equity),
-                "status":          acc.status,
+                "cash":            cash,
+                "equity":          equity,
+                "buying_power":    bp,
+                "portfolio_value": pv,
+                "pnl_today":       equity - last_eq,
+                "status":          status,
             }
         except Exception as e:
             logger.warning(f"get_account() failed : {e}")
@@ -121,18 +139,24 @@ class AlpacaRouter:
 
             client = TradingClient(APCA_KEY, APCA_SECRET, paper=True)
             positions = client.get_all_positions()
-            return [
-                {
+
+            def _f(val: Any) -> float:
+                return float(val) if val is not None else 0.0
+
+            results = []
+            for p in positions:
+                if isinstance(p, str):
+                    continue
+                results.append({
                     "symbol":         p.symbol,
-                    "qty":            float(p.qty),
-                    "side":           p.side.value,
-                    "avg_entry":      float(p.avg_entry_price),
-                    "market_val":     float(p.market_value),
-                    "unrealized_pnl": float(p.unrealized_pl),
-                    "unrealized_pct": float(p.unrealized_plpc) * 100,
-                }
-                for p in positions
-            ]
+                    "qty":            _f(p.qty),
+                    "side":           p.side.value if hasattr(p.side, "value") else str(p.side),
+                    "avg_entry":      _f(p.avg_entry_price),
+                    "market_val":     _f(p.market_value),
+                    "unrealized_pnl": _f(p.unrealized_pl),
+                    "unrealized_pct": _f(p.unrealized_plpc) * 100,
+                })
+            return results
         except Exception as e:
             logger.warning(f"get_positions() failed : {e}")
             return []
@@ -145,18 +169,20 @@ class AlpacaRouter:
 
             client = TradingClient(APCA_KEY, APCA_SECRET, paper=True)
             orders = client.get_orders(filter=GetOrdersRequest(limit=limit))
-            return [
-                {
+            results = []
+            for o in orders:
+                if isinstance(o, str):
+                    continue
+                results.append({
                     "id":         str(o.id),
                     "symbol":     o.symbol,
-                    "side":       o.side.value,
+                    "side":       o.side.value if (hasattr(o.side, "value") and o.side) else str(o.side),
                     "qty":        float(o.qty or 0),
                     "filled_qty": float(o.filled_qty or 0),
-                    "status":     o.status.value,
+                    "status":     o.status.value if hasattr(o.status, "value") else str(o.status),
                     "created_at": str(o.created_at),
-                }
-                for o in orders
-            ]
+                })
+            return results
         except Exception as e:
             logger.warning(f"get_orders() failed : {e}")
             return []
@@ -208,19 +234,20 @@ class AlpacaRouter:
 
             response = client.submit_order(market_order)
 
+            resp: Any = response
             fill = OrderFill(
-                order_id=str(response.id),
+                order_id=str(resp.id) if hasattr(resp, "id") else str(resp.get("id")),
                 symbol=symbol,
                 direction=order.direction.lower(),
-                qty=float(response.qty or 0),
-                filled_qty=float(response.filled_qty or 0),
+                qty=float(resp.qty or 0) if hasattr(resp, "qty") else float(resp.get("qty", 0)),
+                filled_qty=float(resp.filled_qty or 0) if hasattr(resp, "filled_qty") else float(resp.get("filled_qty", 0)),
                 filled_avg_price=(
-                    float(response.filled_avg_price) if response.filled_avg_price else None
+                    float(resp.filled_avg_price) if (hasattr(resp, "filled_avg_price") and resp.filled_avg_price) else (float(resp.get("filled_avg_price")) if resp.get("filled_avg_price") else None)
                 ),
-                status=response.status.value,
-                submitted_at=response.created_at or datetime.now(),
+                status=resp.status.value if hasattr(resp.status, "value") else str(resp.status),
+                submitted_at=(resp.created_at if hasattr(resp, "created_at") else resp.get("created_at")) or datetime.now(),
                 rationale=getattr(order, "rationale", ""),
-                raw={"id": str(response.id), "status": response.status.value},
+                raw={"id": str(resp.id) if hasattr(resp, "id") else str(resp.get("id")), "status": resp.status.value if hasattr(resp.status, "value") else str(resp.status)},
             )
 
             logger.info(f"{symbol} → {fill}")

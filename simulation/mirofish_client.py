@@ -156,12 +156,13 @@ class MiroFishClient:
 
         # Format 1 : {"sentiment_index": -0.42, "panic_spread": 0.71}
         if "sentiment_index" in data:
-            sentiment = float(data["sentiment_index"])
+            sentiment = float(data["sentiment_index"]) if data["sentiment_index"] is not None else 0.0
 
         # Format 2 : {"results": {"sentiment": -0.42}}
         elif "results" in data and isinstance(data["results"], dict):
             r = data["results"]
-            sentiment = float(r.get("sentiment", r.get("sentiment_index", 0.0)))
+            raw_sent = r.get("sentiment", r.get("sentiment_index", 0.0))
+            sentiment = float(raw_sent) if raw_sent is not None else 0.0
 
         # Format 3 : {"agent_states": [...]} → moyenne des états
         elif "agent_states" in data:
@@ -182,7 +183,7 @@ class MiroFishClient:
 
         return SimulationResult(
             sentiment_index=sentiment,
-            panic_spread=float(data.get("panic_spread", 0.0)),
+            panic_spread=float(data.get("panic_spread", 0.0)) if data.get("panic_spread") is not None else 0.0,
             n_agents=int(data.get("n_agents", self.n_agents)),
             n_rounds=int(data.get("rounds", self.n_rounds)),
             scenario=scenario,
