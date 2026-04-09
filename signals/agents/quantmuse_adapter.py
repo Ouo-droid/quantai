@@ -19,7 +19,6 @@ import numpy as np
 import pandas as pd
 from loguru import logger
 
-
 # ---------------------------------------------------------------------------
 # Résultat ML
 # ---------------------------------------------------------------------------
@@ -68,8 +67,8 @@ class QuantMuseAdapter:
     def is_available(self) -> bool:
         """Vérifie que sklearn et xgboost sont installés et chargeables. Aucun appel réseau."""
         try:
-            import sklearn   # noqa: F401
-            import xgboost   # noqa: F401
+            import sklearn  # noqa: F401
+            import xgboost  # noqa: F401
             return True
         except Exception:
             # ImportError si non installé, OSError/XGBoostError si libomp manquant (macOS)
@@ -90,9 +89,9 @@ class QuantMuseAdapter:
         if not self.is_available():
             return {"error": "sklearn/xgboost non installés"}
 
+        import xgboost as xgb
         from sklearn.ensemble import RandomForestClassifier
         from sklearn.metrics import accuracy_score
-        import xgboost as xgb
 
         features = self._build_features(prices)
         target = self._build_target(prices)

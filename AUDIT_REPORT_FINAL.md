@@ -12,7 +12,7 @@ L'audit a porté sur la capacité de l'outil QuantAI à analyser des points fina
 *   **Lacune Fonctionnelle Critique :** Aucun module ne permet d'interroger GitHub ou un moteur de recherche pour l'associer à des points financiers.
 *   **Incohérence Temporelle (Mismatch HFT vs Daily) :** Les agents LLM (notamment dans le submodule `QuantAgent`) sont promptés pour du trading haute fréquence (HFT) alors que les données sont journalières (Daily). Cela fausse l'analyse et le "justification" du signal.
 *   **Horizon de Spécialisation Réduit :** L'outil est hyper-spécialisé dans le trading technique. Il ignore les sous-domaines comme l'audit, le reporting ESG, ou le risk management global.
-*   **Fragilité des Dépendances :** L'environnement initial manquait de bibliothèques essentielles (`rich`, `mplfinance`, etc.), rendant le démarrage laborieux.
+*   **Fragilité de l'Environnement :** La CI échoue actuellement car des dépendances requises par les tests du submodule (ex: `flask`) ne sont pas incluses dans le `pyproject.toml` de la racine, créant un environnement de test instable.
 
 ## 4. Bugs et Limites Observés
 1.  **Interdiction du "HOLD" :** Le `DecisionMaker` de `QuantAgent` interdit explicitement la décision "HOLD", ce qui est une erreur grave pour des investissements basés sur des données quotidiennes ou pour de l'analyse long-terme.
