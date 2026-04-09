@@ -28,6 +28,9 @@ uv.lock
 .DS_Store
 Thumbs.db
 
+# ML models
+signals/agents/quantmuse_model.pkl
+
 # Logs
 *.log
 logs/

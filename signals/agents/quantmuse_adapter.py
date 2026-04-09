@@ -13,11 +13,15 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
+import joblib
 import numpy as np
 import pandas as pd
 from loguru import logger
+
+MODEL_PATH = Path(__file__).parent / "quantmuse_model.pkl"
 
 
 # ---------------------------------------------------------------------------
@@ -60,6 +64,35 @@ class QuantMuseAdapter:
         self._rf_model = None
         self._is_trained = False
         self._feature_names: list[str] = []
+        self._model_path = MODEL_PATH
+        self._load_if_exists()
+
+    def _load_if_exists(self) -> bool:
+        """Charge le modèle depuis le disque si disponible."""
+        if self._model_path.exists():
+            try:
+                data = joblib.load(self._model_path)
+                self._xgb_model = data["xgb"]
+                self._rf_model = data["rf"]
+                self._feature_names = data["features"]
+                self._is_trained = True
+                logger.info(f"QuantMuse model loaded from {self._model_path}")
+                return True
+            except Exception as e:
+                logger.warning(f"QuantMuse model load failed: {e}")
+        return False
+
+    def _save_model(self) -> None:
+        """Persiste le modèle sur le disque."""
+        try:
+            joblib.dump({
+                "xgb": self._xgb_model,
+                "rf": self._rf_model,
+                "features": self._feature_names,
+            }, self._model_path)
+            logger.info(f"QuantMuse model saved to {self._model_path}")
+        except Exception as e:
+            logger.warning(f"QuantMuse model save failed: {e}")
 
     # ------------------------------------------------------------------
     # API publique
@@ -120,6 +153,7 @@ class QuantMuseAdapter:
         )
         self._rf_model.fit(X_tr, y_tr)
         self._is_trained = True
+        self._save_model()
 
         return {
             "n_train": len(X_tr),

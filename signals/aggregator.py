@@ -284,8 +284,12 @@ class SignalAggregator:
         # Enrichissement macro
         if macro is not None:
             try:
-                vector.vix = float(macro["vix"].iloc[-1]) if "vix" in macro.columns else None
-                vector.spread_10y2y = float(macro["spread_10y2y"].iloc[-1]) if "spread_10y2y" in macro.columns else None
+                if "vix" in macro.columns:
+                    val = macro["vix"].iloc[-1]
+                    vector.vix = float(val) if val is not None and pd.notna(val) else None
+                if "spread_10y2y" in macro.columns:
+                    val = macro["spread_10y2y"].iloc[-1]
+                    vector.spread_10y2y = float(val) if val is not None and pd.notna(val) else None
             except Exception as e:
                 logger.warning(f"Macro enrichment: {e}")
 
