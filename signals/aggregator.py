@@ -65,8 +65,9 @@ class SignalVector:
     low_volatility: float | None = None
 
     # Enrichissement externe (rempli plus tard)
-    mirofish_sentiment: float | None = None  # MiroFish
-    agent_bias: float | None = None  # QuantAgent
+    mirofish_sentiment: float | None = None   # MiroFish
+    agent_bias: float | None = None           # QuantAgent
+    ml_prediction: float | None = None        # QuantMuse ML (-1.0 → +1.0)
 
     # Macro (OpenBB FRED)
     vix: float | None = None
@@ -98,6 +99,7 @@ class SignalVector:
         lines.append("EXTERNE")
         lines.append(f"  mirofish_sentiment   : {_fmt(self.mirofish_sentiment)}")
         lines.append(f"  agent_bias           : {_fmt(self.agent_bias)}")
+        lines.append(f"  ml_prediction        : {_fmt(self.ml_prediction)}")
         lines.append(f"  vix                  : {_fmt(self.vix)}")
         lines.append(f"  spread_10y2y         : {_fmt(self.spread_10y2y)}")
         lines.append("")
@@ -124,6 +126,8 @@ class SignalVector:
                 self.quality,
                 self.low_volatility,
                 self.mirofish_sentiment,
+                self.agent_bias,
+                self.ml_prediction,
             ]
             if v is not None
         ]
@@ -190,6 +194,7 @@ class SignalAggregator:
         mirofish_sentiment: float | None = None,
         agent_bias: float | None = None,
         use_quantagent: bool = False,
+        use_quantmuse: bool = False,
     ) -> SignalVector:
         """
         Args:
@@ -200,6 +205,7 @@ class SignalAggregator:
             agent_bias         : biais QuantAgent (-1 → +1) passé manuellement
             use_quantagent     : si True, appelle QuantAgentAdapter pour remplir agent_bias
                                  (ignoré si agent_bias est déjà fourni)
+            use_quantmuse      : si True, appelle QuantMuseAdapter pour remplir ml_prediction
 
         Returns:
             SignalVector avec toutes les valeurs disponibles
@@ -257,6 +263,23 @@ class SignalAggregator:
                     )
             except Exception as e:
                 logger.warning(f"{symbol} / QuantAgent: {e}")
+
+        # QuantMuse ML prediction (optionnel)
+        if use_quantmuse and vector.ml_prediction is None:
+            try:
+                from .agents.quantmuse_adapter import QuantMuseAdapter
+                qm = QuantMuseAdapter()
+                if qm.is_available():
+                    ml_signal = qm.predict(prices, symbol)
+                    vector.ml_prediction = ml_signal.ml_prediction
+                    logger.info(
+                        f"{symbol} → ml_prediction={ml_signal.ml_prediction:+.3f} "
+                        f"({ml_signal.model_used}, conf={ml_signal.confidence:.2f})"
+                        if ml_signal.ml_prediction is not None
+                        else f"{symbol} / QuantMuse: ml_prediction=None"
+                    )
+            except Exception as e:
+                logger.warning(f"{symbol} / quantmuse: {e}")
 
         # Enrichissement macro
         if macro is not None:
