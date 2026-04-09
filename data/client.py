@@ -269,7 +269,7 @@ class OpenBBClient:
             "spread_10y2y": "T10Y2Y",
             "vix": "VIXCLS",
         }
-        latest = {}
+        latest: dict[str, float | None] = {}
         for name, sid in series.items():
             try:
                 s = self.fred(sid)

@@ -94,7 +94,9 @@ def make_agent_with_mock(response_text: str) -> DecisionAgent:
 
     mock_client = MagicMock()
     mock_message = MagicMock()
-    mock_content = MagicMock()
+    from anthropic.types import TextBlock
+
+    mock_content = TextBlock(text=response_text, type="text")
     mock_content.text = response_text
     mock_message.content = [mock_content]
     mock_client.messages.create.return_value = mock_message
