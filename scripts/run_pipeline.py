@@ -17,14 +17,14 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from data.client import OpenBBClient
 from execution.decision_agent import DecisionAgent
-from execution.risk import Portfolio, RiskEngine, RiskLimits
+from execution.risk import Portfolio
 from signals.aggregator import SignalAggregator
 
 
 def run(symbol: str, capital: float = 100_000.0, use_quantagent: bool = False) -> None:
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"  QuantAI Pipeline — {symbol}")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     # 1. Data
     print("[1/3] Fetching data from OpenBB...")
@@ -52,7 +52,7 @@ def run(symbol: str, capital: float = 100_000.0, use_quantagent: bool = False) -
     order = agent.decide_with_risk(vector, portfolio, recent_returns=recent_returns)
 
     print()
-    print(f"{'─'*60}")
+    print(f"{'─' * 60}")
     if order is None:
         print("  → ORDRE BLOQUÉ par le Risk Engine")
     else:
@@ -63,7 +63,7 @@ def run(symbol: str, capital: float = 100_000.0, use_quantagent: bool = False) -
         print(f"     stop_loss  : {order.stop_loss:.2%}")
         print(f"     take_profit: {order.take_profit:.2%}")
         print(f"     rationale  : {order.rationale}")
-    print(f"{'─'*60}\n")
+    print(f"{'─' * 60}\n")
 
 
 if __name__ == "__main__":

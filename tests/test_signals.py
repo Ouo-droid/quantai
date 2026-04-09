@@ -12,22 +12,21 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from signals.aggregator import SignalAggregator, SignalVector
 from signals.factors.base import BaseFactor, FactorResult, _estimate_half_life
 from signals.factors.momentum import (
     MomentumFactor,
+    MomentumReversal,
     RiskAdjustedMomentum,
     TrendStrength,
-    MomentumReversal,
     composite_momentum,
 )
 from signals.factors.value_quality_vol import (
-    ValueFactor,
-    QualityFactor,
-    VolatilityFactor,
     BetaFactor,
+    QualityFactor,
+    ValueFactor,
+    VolatilityFactor,
 )
-from signals.aggregator import SignalAggregator, SignalVector
-
 
 # ---------------------------------------------------------------------------
 # Fixture : données synthétiques
@@ -43,13 +42,16 @@ def make_prices(n: int = 500, trend: float = 0.0002, seed: int = 42) -> pd.DataF
     close = 100 * np.exp(np.cumsum(returns))
     noise = rng.uniform(0.005, 0.015, n)
 
-    return pd.DataFrame({
-        "open":   close * (1 - noise / 2),
-        "high":   close * (1 + noise),
-        "low":    close * (1 - noise),
-        "close":  close,
-        "volume": rng.integers(1_000_000, 10_000_000, n).astype(float),
-    }, index=pd.DatetimeIndex(dates, name="date"))
+    return pd.DataFrame(
+        {
+            "open": close * (1 - noise / 2),
+            "high": close * (1 + noise),
+            "low": close * (1 - noise),
+            "close": close,
+            "volume": rng.integers(1_000_000, 10_000_000, n).astype(float),
+        },
+        index=pd.DatetimeIndex(dates, name="date"),
+    )
 
 
 @pytest.fixture
@@ -211,7 +213,13 @@ class TestCompositeMomentum:
         assert abs(valid.std() - 1.0) < 0.5
 
     def test_custom_weights(self, prices):
-        weights = {"mom_3m": 0.5, "mom_6m": 0.3, "mom_12m": 0.1, "ram": 0.05, "trend": 0.05}
+        weights = {
+            "mom_3m": 0.5,
+            "mom_6m": 0.3,
+            "mom_12m": 0.1,
+            "ram": 0.05,
+            "trend": 0.05,
+        }
         result = composite_momentum(prices, weights=weights)
         assert isinstance(result, pd.Series)
 
@@ -248,7 +256,8 @@ class TestSignalAggregator:
     def test_external_signals_injected(self, prices):
         agg = SignalAggregator(min_bars=100)
         vector = agg.compute(
-            prices, symbol="TEST",
+            prices,
+            symbol="TEST",
             mirofish_sentiment=-0.42,
             agent_bias=0.75,
         )
@@ -288,13 +297,13 @@ class TestSignalAggregator:
         vectors = agg.compute_multi(prices_dict)
         ranked = agg.rank_universe(vectors)
         assert isinstance(ranked, pd.DataFrame)
-        assert ranked.index[0] == "BULL"   # tendance haussière en tête
+        assert ranked.index[0] == "BULL"  # tendance haussière en tête
         assert ranked.index[-1] == "BEAR"  # tendance baissière en dernier
 
     def test_empty_prices_returns_empty_vector(self):
         empty = pd.DataFrame(
             {"open": [], "high": [], "low": [], "close": [], "volume": []},
-            index=pd.DatetimeIndex([])
+            index=pd.DatetimeIndex([]),
         )
         agg = SignalAggregator()
         vector = agg.compute(empty, symbol="EMPTY")

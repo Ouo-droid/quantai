@@ -23,11 +23,12 @@ from scipy import stats
 @dataclass
 class FactorResult:
     """Résultat d'un facteur : valeur + statistiques de validité."""
+
     name: str
-    values: pd.Series                  # signal brut
-    values_ranked: pd.Series | None = None   # rang cross-sectionnel 0→1
-    ic: float | None = None            # information coefficient (corr vs fwd return)
-    t_stat: float | None = None        # t-statistique du IC
+    values: pd.Series  # signal brut
+    values_ranked: pd.Series | None = None  # rang cross-sectionnel 0→1
+    ic: float | None = None  # information coefficient (corr vs fwd return)
+    t_stat: float | None = None  # t-statistique du IC
     p_value: float | None = None
     half_life_days: int | None = None  # demi-vie du signal
 

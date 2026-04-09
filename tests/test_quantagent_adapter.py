@@ -10,7 +10,6 @@ Lance : uv run pytest tests/test_quantagent_adapter.py -v
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -18,7 +17,6 @@ import pandas as pd
 import pytest
 
 from signals.agents.quantagent_adapter import AgentSignal, QuantAgentAdapter
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -31,10 +29,10 @@ def prices() -> pd.DataFrame:
     idx = pd.date_range("2024-01-01", periods=60, freq="D")
     return pd.DataFrame(
         {
-            "open":   [100.0 + i * 0.1 for i in range(60)],
-            "high":   [101.0 + i * 0.1 for i in range(60)],
-            "low":    [99.0  + i * 0.1 for i in range(60)],
-            "close":  [100.5 + i * 0.1 for i in range(60)],
+            "open": [100.0 + i * 0.1 for i in range(60)],
+            "high": [101.0 + i * 0.1 for i in range(60)],
+            "low": [99.0 + i * 0.1 for i in range(60)],
+            "close": [100.5 + i * 0.1 for i in range(60)],
             "volume": [1_000_000] * 60,
         },
         index=idx,
@@ -107,9 +105,7 @@ class TestParseDecision:
         assert long_bias == pytest.approx(-short_bias, abs=0.001)  # type: ignore
 
     def test_flat(self):
-        direction, bias, _ = QuantAgentAdapter._parse_decision(
-            '{"decision": "FLAT", "risk_reward_ratio": 1.4}'
-        )
+        direction, bias, _ = QuantAgentAdapter._parse_decision('{"decision": "FLAT", "risk_reward_ratio": 1.4}')
         assert direction == "FLAT"
         assert bias == 0.0
 
@@ -121,9 +117,7 @@ class TestParseDecision:
         assert bias is not None and bias > 0
 
     def test_fallback_plain_text_short(self):
-        direction, bias, _ = QuantAgentAdapter._parse_decision(
-            "Market shows weakness — SHORT entry recommended."
-        )
+        direction, bias, _ = QuantAgentAdapter._parse_decision("Market shows weakness — SHORT entry recommended.")
         assert direction == "SHORT"
         assert bias is not None and bias < 0
 
@@ -147,8 +141,10 @@ class TestParseDecision:
 
 def test_analyze_never_raises_on_llm_error(prices):
     adapter = QuantAgentAdapter()
-    with patch.object(adapter, "is_available", return_value=True), \
-         patch.object(adapter, "_run_analysis", side_effect=RuntimeError("LLM crash")):
+    with (
+        patch.object(adapter, "is_available", return_value=True),
+        patch.object(adapter, "_run_analysis", side_effect=RuntimeError("LLM crash")),
+    ):
         signal = adapter.analyze(prices, symbol="AAPL")
 
     assert isinstance(signal, AgentSignal)
@@ -163,7 +159,6 @@ def test_analyze_never_raises_on_llm_error(prices):
 # ---------------------------------------------------------------------------
 
 import signals.agents.quantagent_adapter as _qa_mod  # force le cache module
-
 
 # ---------------------------------------------------------------------------
 # 5. SignalAggregator.compute(use_quantagent=False) n'appelle pas QuantAgent
@@ -225,9 +220,7 @@ def test_manual_agent_bias_takes_priority(prices):
     _qa_mod.QuantAgentAdapter = mock_cls  # type: ignore
     try:
         agg = SignalAggregator()
-        vector = agg.compute(
-            prices, symbol="AAPL", agent_bias=0.42, use_quantagent=True
-        )
+        vector = agg.compute(prices, symbol="AAPL", agent_bias=0.42, use_quantagent=True)
     finally:
         _qa_mod.QuantAgentAdapter = original
 

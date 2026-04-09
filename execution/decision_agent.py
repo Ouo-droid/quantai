@@ -60,10 +60,10 @@ class TradeOrder:
     symbol: str
     direction: Direction
     confidence: float
-    entry: float = 0.0           # % offset from current price (0.0 = market order)
-    stop_loss: float = 0.02      # stop distance as % of price
-    take_profit: float = 0.04    # take-profit distance as % of price
-    size_pct: float = 0.0        # fraction of portfolio (0→1)
+    entry: float = 0.0  # % offset from current price (0.0 = market order)
+    stop_loss: float = 0.02  # stop distance as % of price
+    take_profit: float = 0.04  # take-profit distance as % of price
+    size_pct: float = 0.0  # fraction of portfolio (0→1)
     rationale: str = ""
 
     def __post_init__(self) -> None:

@@ -87,12 +87,12 @@ class Portfolio:
 
 @dataclass
 class RiskLimits:
-    max_position_pct: float = 0.05    # 5% max par position
-    max_sector_pct: float = 0.25      # 25% max par secteur
-    daily_var_95: float = 0.02        # VaR 95% < 2% du portefeuille
-    max_drawdown: float = 0.10        # drawdown max 10% (valeur positive)
-    min_confidence: float = 0.60      # confidence minimale
-    max_leverage: float = 1.0         # pas de levier
+    max_position_pct: float = 0.05  # 5% max par position
+    max_sector_pct: float = 0.25  # 25% max par secteur
+    daily_var_95: float = 0.02  # VaR 95% < 2% du portefeuille
+    max_drawdown: float = 0.10  # drawdown max 10% (valeur positive)
+    min_confidence: float = 0.60  # confidence minimale
+    max_leverage: float = 1.0  # pas de levier
 
 
 # ---------------------------------------------------------------------------
@@ -170,18 +170,21 @@ class RiskEngine:
                     self.limits.daily_var_95,
                 )
                 logger.warning(
-                    f"[RiskEngine] {order.symbol} blocked: VaR {current_var:.1%} "
-                    f"> limit {self.limits.daily_var_95:.1%}"
+                    f"[RiskEngine] {order.symbol} blocked: VaR {current_var:.1%} > limit {self.limits.daily_var_95:.1%}"
                 )
                 return None
 
         # 4. Position size check (adjusts, does not block)
         order = self._check_position_size(order)
 
-        self._record(order.symbol, "pass", "all_checks_passed", order.size_pct, self.limits.max_position_pct)
-        logger.info(
-            f"[RiskEngine] {order.symbol} → {order.direction} size={order.size_pct:.1%} approved"
+        self._record(
+            order.symbol,
+            "pass",
+            "all_checks_passed",
+            order.size_pct,
+            self.limits.max_position_pct,
         )
+        logger.info(f"[RiskEngine] {order.symbol} → {order.direction} size={order.size_pct:.1%} approved")
         return order
 
     def _check_position_size(self, order: TradeOrder) -> TradeOrder:
@@ -189,10 +192,7 @@ class RiskEngine:
         if order.size_pct > self.limits.max_position_pct:
             original = order.size_pct
             order.size_pct = self.limits.max_position_pct
-            logger.info(
-                f"[RiskEngine] {order.symbol} position size reduced "
-                f"{original:.0%} → {order.size_pct:.0%}"
-            )
+            logger.info(f"[RiskEngine] {order.symbol} position size reduced {original:.0%} → {order.size_pct:.0%}")
             self._record(
                 order.symbol,
                 "adjusted",
@@ -225,14 +225,16 @@ class RiskEngine:
         observed: float | None,
         limit: float | None,
     ) -> None:
-        self._log.append({
-            "timestamp": datetime.now(UTC).isoformat(),
-            "symbol": symbol,
-            "outcome": outcome,
-            "rule": rule,
-            "observed": observed,
-            "limit": limit,
-        })
+        self._log.append(
+            {
+                "timestamp": datetime.now(UTC).isoformat(),
+                "symbol": symbol,
+                "outcome": outcome,
+                "rule": rule,
+                "observed": observed,
+                "limit": limit,
+            }
+        )
 
     def audit_log(self) -> list[dict]:
         """Retourne l'historique de toutes les décisions de risque."""

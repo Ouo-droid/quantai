@@ -59,8 +59,8 @@ class AgentSignal:
     agent_bias : float entre -1.0 et +1.0, ou None si l'analyse a échoué.
     """
 
-    agent_bias: float | None        # -1.0 (fort SHORT) → +1.0 (fort LONG)
-    direction: str                  # "LONG" | "SHORT" | "FLAT" | "UNKNOWN"
+    agent_bias: float | None  # -1.0 (fort SHORT) → +1.0 (fort LONG)
+    direction: str  # "LONG" | "SHORT" | "FLAT" | "UNKNOWN"
     indicator_report: str | None = None
     pattern_report: str | None = None
     trend_report: str | None = None
@@ -103,10 +103,7 @@ class QuantAgentAdapter:
         Ne tente aucun appel réseau.
         """
         if not _QUANTAGENT_PATH.exists():
-            logger.warning(
-                "QuantAgent submodule absent — "
-                "lancez : git submodule update --init --recursive"
-            )
+            logger.warning("QuantAgent submodule absent — lancez : git submodule update --init --recursive")
             return False
 
         if not ((_QUANTAGENT_PATH / "trading_graph.py").exists()):
@@ -114,9 +111,7 @@ class QuantAgentAdapter:
             return False
 
         if not self._has_api_key():
-            logger.warning(
-                f"QuantAgent : clé API manquante pour le provider '{self.llm_provider}'"
-            )
+            logger.warning(f"QuantAgent : clé API manquante pour le provider '{self.llm_provider}'")
             return False
 
         return True
@@ -232,8 +227,11 @@ class QuantAgentAdapter:
 
         # Normalise les noms de colonnes (OpenBB retourne en minuscules)
         col_map = {
-            "open": "Open", "high": "High", "low": "Low",
-            "close": "Close", "volume": "Volume",
+            "open": "Open",
+            "high": "High",
+            "low": "Low",
+            "close": "Close",
+            "volume": "Volume",
         }
         df = df.rename(columns={k: v for k, v in col_map.items() if k in df.columns})
 
@@ -248,9 +246,7 @@ class QuantAgentAdapter:
 
         kline: dict = {}
         if date_col:
-            kline["Datetime"] = pd.to_datetime(df[date_col]).dt.strftime(
-                "%Y-%m-%d %H:%M:%S"
-            ).tolist()
+            kline["Datetime"] = pd.to_datetime(df[date_col]).dt.strftime("%Y-%m-%d %H:%M:%S").tolist()
 
         for col in ["Open", "High", "Low", "Close", "Volume"]:
             if col in df.columns:

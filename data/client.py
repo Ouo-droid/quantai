@@ -102,10 +102,7 @@ class OpenBBClient:
             r.raise_for_status()
             return r.json()
         except httpx.ConnectError:
-            raise ConnectionError(
-                f"OpenBB API non joignable sur {self.base_url}. "
-                "Lance 'd'abord : openbb-api'"
-            )
+            raise ConnectionError(f"OpenBB API non joignable sur {self.base_url}. Lance 'd'abord : openbb-api'")
         except httpx.HTTPStatusError as e:
             logger.error(f"HTTP {e.response.status_code} sur {path}: {e.response.text}")
             raise
@@ -159,8 +156,12 @@ class OpenBBClient:
     def _normalize_ohlcv(df: pd.DataFrame) -> pd.DataFrame:
         """Standardise les noms de colonnes et l'index."""
         col_map = {
-            "Date": "date", "Open": "open", "High": "high",
-            "Low": "low", "Close": "close", "Volume": "volume",
+            "Date": "date",
+            "Open": "open",
+            "High": "high",
+            "Low": "low",
+            "Close": "close",
+            "Volume": "volume",
             "Adj Close": "adj_close",
         }
         df = df.rename(columns={k: v for k, v in col_map.items() if k in df.columns})
@@ -204,13 +205,15 @@ class OpenBBClient:
         items = []
         for r in raw.get("results", []):
             try:
-                items.append(NewsItem(
-                    date=r.get("date", datetime.now()),
-                    title=r.get("title", ""),
-                    text=r.get("text", r.get("body", "")),
-                    url=r.get("url", ""),
-                    source=r.get("source", ""),
-                ))
+                items.append(
+                    NewsItem(
+                        date=r.get("date", datetime.now()),
+                        title=r.get("title", ""),
+                        text=r.get("text", r.get("body", "")),
+                        url=r.get("url", ""),
+                        source=r.get("source", ""),
+                    )
+                )
             except Exception as e:
                 logger.warning(f"News parsing error: {e}")
         logger.debug(f"news({symbol}) → {len(items)} articles")
@@ -329,6 +332,7 @@ class OpenBBClient:
 # ---------------------------------------------------------------------------
 # Singleton global (optionnel)
 # ---------------------------------------------------------------------------
+
 
 @lru_cache(maxsize=1)
 def get_client() -> OpenBBClient:

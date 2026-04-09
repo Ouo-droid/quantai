@@ -17,7 +17,6 @@ from execution.decision_agent import DecisionAgent, TradeOrder
 from execution.risk import Portfolio, RiskEngine, RiskLimits
 from signals.aggregator import SignalVector
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -54,6 +53,7 @@ def make_engine(
 def normal_returns(n: int = 252, daily_vol: float = 0.01) -> list[float]:
     """Rendements synthétiques faibles (VaR < 2%)."""
     import random
+
     rng = random.Random(42)
     return [rng.gauss(0.0003, daily_vol) for _ in range(n)]
 
@@ -61,6 +61,7 @@ def normal_returns(n: int = 252, daily_vol: float = 0.01) -> list[float]:
 def fat_tail_returns(n: int = 252) -> list[float]:
     """Rendements avec queue grasse pour déclencher la VaR."""
     import random
+
     rng = random.Random(99)
     returns = [rng.gauss(0.0, 0.03) for _ in range(n)]
     # Force some extreme losses to push VaR above 2%
