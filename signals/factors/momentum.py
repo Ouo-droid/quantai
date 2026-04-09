@@ -40,8 +40,8 @@ class MomentumFactor(BaseFactor):
 
     def __init__(
         self,
-        lookback: int = 252,    # ~12 mois
-        skip_days: int = 21,    # skip dernier mois
+        lookback: int = 252,  # ~12 mois
+        skip_days: int = 21,  # skip dernier mois
         winsorize: bool = True,
     ):
         self.lookback = lookback
@@ -56,9 +56,7 @@ class MomentumFactor(BaseFactor):
         close = prices["close"]
 
         # Return de t-lookback à t-skip
-        past_return = (
-            close.shift(self.skip_days) / close.shift(self.lookback) - 1
-        )
+        past_return = close.shift(self.skip_days) / close.shift(self.lookback) - 1
 
         if self._winsorize:
             past_return = self.winsorize(past_return)
@@ -117,9 +115,7 @@ class RiskAdjustedMomentum(BaseFactor):
         returns = close.pct_change()
 
         # Rendement cumulé (skip inclus)
-        past_ret = (
-            close.shift(self.skip_days) / close.shift(self.return_window) - 1
-        )
+        past_ret = close.shift(self.skip_days) / close.shift(self.return_window) - 1
 
         # Volatilité réalisée annualisée
         # Floor à 1% annualisé : évite l'explosion du signal sur données quasi-constantes
@@ -169,11 +165,14 @@ class TrendStrength(BaseFactor):
 
         # ATR (Average True Range)
         prev_close = close.shift(1)
-        tr = pd.concat([
-            high - low,
-            (high - prev_close).abs(),
-            (low - prev_close).abs(),
-        ], axis=1).max(axis=1)
+        tr = pd.concat(
+            [
+                high - low,
+                (high - prev_close).abs(),
+                (low - prev_close).abs(),
+            ],
+            axis=1,
+        ).max(axis=1)
         atr = tr.ewm(span=self.atr_window, adjust=False).mean()
         atr = atr.replace(0, np.nan)
 
@@ -212,6 +211,7 @@ class MomentumReversal(BaseFactor):
 # Combinaison de signaux momentum
 # ---------------------------------------------------------------------------
 
+
 def composite_momentum(
     prices: pd.DataFrame,
     weights: dict[str, float] | None = None,
@@ -232,11 +232,11 @@ def composite_momentum(
         # → signal prêt à entrer dans le vecteur de décision
     """
     factors = {
-        "mom_3m":  MomentumFactor(lookback=63,  skip_days=5),
-        "mom_6m":  MomentumFactor(lookback=126, skip_days=21),
+        "mom_3m": MomentumFactor(lookback=63, skip_days=5),
+        "mom_6m": MomentumFactor(lookback=126, skip_days=21),
         "mom_12m": MomentumFactor(lookback=252, skip_days=21),
-        "ram":     RiskAdjustedMomentum(),
-        "trend":   TrendStrength(),
+        "ram": RiskAdjustedMomentum(),
+        "trend": TrendStrength(),
     }
 
     if weights is None:

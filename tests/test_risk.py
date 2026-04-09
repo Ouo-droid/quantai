@@ -9,14 +9,14 @@ Lance : uv run pytest tests/test_risk.py -v
 
 from __future__ import annotations
 
+from typing import cast
 from unittest.mock import MagicMock
 
 import pytest
 
-from execution.decision_agent import DecisionAgent, TradeOrder
+from execution.decision_agent import DecisionAgent, Direction, TradeOrder
 from execution.risk import Portfolio, RiskEngine, RiskLimits
 from signals.aggregator import SignalVector
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -31,7 +31,7 @@ def make_order(
 ) -> TradeOrder:
     return TradeOrder(
         symbol=symbol,
-        direction=direction,
+        direction=cast(Direction, direction),
         confidence=confidence,
         size_pct=size_pct,
     )
@@ -54,6 +54,7 @@ def make_engine(
 def normal_returns(n: int = 252, daily_vol: float = 0.01) -> list[float]:
     """Rendements synthétiques faibles (VaR < 2%)."""
     import random
+
     rng = random.Random(42)
     return [rng.gauss(0.0003, daily_vol) for _ in range(n)]
 
@@ -61,6 +62,7 @@ def normal_returns(n: int = 252, daily_vol: float = 0.01) -> list[float]:
 def fat_tail_returns(n: int = 252) -> list[float]:
     """Rendements avec queue grasse pour déclencher la VaR."""
     import random
+
     rng = random.Random(99)
     returns = [rng.gauss(0.0, 0.03) for _ in range(n)]
     # Force some extreme losses to push VaR above 2%
@@ -345,7 +347,9 @@ def make_decision_agent_mock(response_text: str) -> DecisionAgent:
 
     mock_client = MagicMock()
     mock_message = MagicMock()
-    mock_content = MagicMock()
+    from anthropic.types import TextBlock
+
+    mock_content = TextBlock(text=response_text, type="text")
     mock_content.text = response_text
     mock_message.content = [mock_content]
     mock_client.messages.create.return_value = mock_message

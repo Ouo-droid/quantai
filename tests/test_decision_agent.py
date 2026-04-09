@@ -9,13 +9,12 @@ Lance : uv run pytest tests/test_decision_agent.py -v
 from __future__ import annotations
 
 from datetime import datetime
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
 from execution.decision_agent import DecisionAgent, TradeOrder
 from signals.aggregator import SignalVector
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -95,7 +94,9 @@ def make_agent_with_mock(response_text: str) -> DecisionAgent:
 
     mock_client = MagicMock()
     mock_message = MagicMock()
-    mock_content = MagicMock()
+    from anthropic.types import TextBlock
+
+    mock_content = TextBlock(text=response_text, type="text")
     mock_content.text = response_text
     mock_message.content = [mock_content]
     mock_client.messages.create.return_value = mock_message
@@ -150,7 +151,16 @@ class TestTradeOrder:
     def test_to_dict_contains_all_fields(self):
         order = TradeOrder(symbol="AAPL", direction="LONG", confidence=0.8)
         d = order.to_dict()
-        for key in ("symbol", "direction", "confidence", "entry", "stop_loss", "take_profit", "size_pct", "rationale"):
+        for key in (
+            "symbol",
+            "direction",
+            "confidence",
+            "entry",
+            "stop_loss",
+            "take_profit",
+            "size_pct",
+            "rationale",
+        ):
             assert key in d
 
     def test_exact_confidence_060_is_active(self):
@@ -281,9 +291,10 @@ class TestDecisionAgentIntegration:
     """Lance avec : uv run pytest -m integration"""
 
     def test_real_decide_aapl(self):
-        from signals.aggregator import SignalAggregator
         import numpy as np
         import pandas as pd
+
+        from signals.aggregator import SignalAggregator
 
         rng = np.random.default_rng(42)
         n = 500
@@ -291,13 +302,16 @@ class TestDecisionAgentIntegration:
         returns = rng.normal(0.0003, 0.015, n)
         close = 100 * np.exp(np.cumsum(returns))
         noise = rng.uniform(0.005, 0.015, n)
-        prices = pd.DataFrame({
-            "open": close * (1 - noise / 2),
-            "high": close * (1 + noise),
-            "low": close * (1 - noise),
-            "close": close,
-            "volume": rng.integers(1_000_000, 10_000_000, n).astype(float),
-        }, index=pd.DatetimeIndex(dates, name="date"))
+        prices = pd.DataFrame(
+            {
+                "open": close * (1 - noise / 2),
+                "high": close * (1 + noise),
+                "low": close * (1 - noise),
+                "close": close,
+                "volume": rng.integers(1_000_000, 10_000_000, n).astype(float),
+            },
+            index=pd.DatetimeIndex(dates, name="date"),
+        )
 
         agg = SignalAggregator(min_bars=100)
         vector = agg.compute(prices, symbol="AAPL")

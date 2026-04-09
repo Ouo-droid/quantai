@@ -12,9 +12,10 @@ Usage :
     uv run python scripts/check_openbb.py
 """
 
+from rich import print as rprint
 from rich.console import Console
 from rich.table import Table
-from rich import print as rprint
+
 from data.client import OpenBBClient
 
 console = Console()
@@ -44,9 +45,11 @@ def main():
             table.add_column(col, justify="right")
         for idx, row in df.tail(5).iterrows():
             table.add_row(
-                f"{row['open']:.2f}", f"{row['high']:.2f}",
-                f"{row['low']:.2f}", f"{row['close']:.2f}",
-                f"{row['volume']:,.0f}"
+                f"{row['open']:.2f}",
+                f"{row['high']:.2f}",
+                f"{row['low']:.2f}",
+                f"{row['close']:.2f}",
+                f"{row['volume']:,.0f}",
             )
         console.print(table)
     except Exception as e:

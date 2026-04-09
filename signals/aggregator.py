@@ -65,15 +65,15 @@ class SignalVector:
     low_volatility: float | None = None
 
     # Enrichissement externe (rempli plus tard)
-    mirofish_sentiment: float | None = None   # MiroFish
-    agent_bias: float | None = None           # QuantAgent
+    mirofish_sentiment: float | None = None  # MiroFish
+    agent_bias: float | None = None  # QuantAgent
 
     # Macro (OpenBB FRED)
     vix: float | None = None
     spread_10y2y: float | None = None
 
     # Méta
-    data_quality: float = 1.0   # 0→1, baisse si données manquantes
+    data_quality: float = 1.0  # 0→1, baisse si données manquantes
     n_bars: int = 0
 
     def to_dict(self) -> dict[str, Any]:
@@ -117,7 +117,8 @@ class SignalVector:
         Pour un usage décisionnel, normaliser mirofish_sentiment séparément.
         """
         values = [
-            v for v in [
+            v
+            for v in [
                 self.momentum_composite,
                 self.value,
                 self.quality,
@@ -245,6 +246,7 @@ class SignalAggregator:
         if use_quantagent and vector.agent_bias is None:
             try:
                 from .agents.quantagent_adapter import QuantAgentAdapter
+
                 adapter = QuantAgentAdapter()
                 if adapter.is_available():
                     agent_signal = adapter.analyze(prices, symbol)
@@ -265,8 +267,7 @@ class SignalAggregator:
                 logger.warning(f"Macro enrichment: {e}")
 
         logger.info(
-            f"{symbol} → composite={vector.composite_score:.3f} "
-            f"quality={data_quality:.2f} bars={n_bars}"
+            f"{symbol} → composite={vector.composite_score:.3f} quality={data_quality:.2f} bars={n_bars}"
             if vector.composite_score is not None
             else f"{symbol} → signal vide"
         )
@@ -278,10 +279,7 @@ class SignalAggregator:
         **kwargs,
     ) -> dict[str, SignalVector]:
         """Calcule le vecteur pour plusieurs symboles."""
-        return {
-            symbol: self.compute(prices, symbol=symbol, **kwargs)
-            for symbol, prices in prices_dict.items()
-        }
+        return {symbol: self.compute(prices, symbol=symbol, **kwargs) for symbol, prices in prices_dict.items()}
 
     def rank_universe(
         self,
@@ -296,14 +294,16 @@ class SignalAggregator:
         """
         rows = []
         for symbol, v in vectors.items():
-            rows.append({
-                "symbol": symbol,
-                "composite": v.composite_score,
-                "momentum": v.momentum_composite,
-                "value": v.value,
-                "quality": v.quality,
-                "low_vol": v.low_volatility,
-                "data_quality": v.data_quality,
-            })
+            rows.append(
+                {
+                    "symbol": symbol,
+                    "composite": v.composite_score,
+                    "momentum": v.momentum_composite,
+                    "value": v.value,
+                    "quality": v.quality,
+                    "low_vol": v.low_volatility,
+                    "data_quality": v.data_quality,
+                }
+            )
         df = pd.DataFrame(rows).set_index("symbol")
         return df.sort_values("composite", ascending=False)

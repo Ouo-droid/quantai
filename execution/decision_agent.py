@@ -21,6 +21,7 @@ from dataclasses import asdict, dataclass
 from typing import Literal
 
 from anthropic import Anthropic
+from anthropic.types import TextBlock
 from dotenv import load_dotenv
 from loguru import logger
 
@@ -60,10 +61,10 @@ class TradeOrder:
     symbol: str
     direction: Direction
     confidence: float
-    entry: float = 0.0           # % offset from current price (0.0 = market order)
-    stop_loss: float = 0.02      # stop distance as % of price
-    take_profit: float = 0.04    # take-profit distance as % of price
-    size_pct: float = 0.0        # fraction of portfolio (0→1)
+    entry: float = 0.0  # % offset from current price (0.0 = market order)
+    stop_loss: float = 0.02  # stop distance as % of price
+    take_profit: float = 0.04  # take-profit distance as % of price
+    size_pct: float = 0.0  # fraction of portfolio (0→1)
     rationale: str = ""
 
     def __post_init__(self) -> None:
@@ -140,7 +141,8 @@ class DecisionAgent:
                 }
             ],
         )
-        return message.content[0].text
+        block = message.content[0]
+        return block.text if isinstance(block, TextBlock) else str(block)
 
     def decide_with_risk(
         self,
