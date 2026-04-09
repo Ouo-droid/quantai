@@ -195,17 +195,23 @@ class SignalAggregator:
         agent_bias: float | None = None,
         use_quantagent: bool = False,
         use_quantmuse: bool = False,
+        use_mirofish: bool = False,
+        mirofish_news: list | None = None,
+        mirofish_scenario: str = "market_news",
     ) -> SignalVector:
         """
         Args:
             prices             : DataFrame OHLCV (index DatetimeIndex)
             symbol             : ticker
             macro              : snapshot macro (output de client.macro_dashboard())
-            mirofish_sentiment : score MiroFish (-1 → +1)
+            mirofish_sentiment : score MiroFish (-1 → +1) injecté manuellement
             agent_bias         : biais QuantAgent (-1 → +1) passé manuellement
             use_quantagent     : si True, appelle QuantAgentAdapter pour remplir agent_bias
                                  (ignoré si agent_bias est déjà fourni)
             use_quantmuse      : si True, appelle QuantMuseAdapter pour remplir ml_prediction
+            use_mirofish       : si True, appelle MiroFishClient pour remplir mirofish_sentiment
+            mirofish_news      : news pré-fetchées à utiliser comme seed MiroFish
+            mirofish_scenario  : scénario MiroFish ("market_news", "fed_rate_shock", ...)
 
         Returns:
             SignalVector avec toutes les valeurs disponibles
@@ -280,6 +286,22 @@ class SignalAggregator:
                     )
             except Exception as e:
                 logger.warning(f"{symbol} / quantmuse: {e}")
+
+        # MiroFish simulation (optionnel, non bloquant)
+        if use_mirofish and vector.mirofish_sentiment is None:
+            try:
+                from simulation.mirofish_client import MiroFishClient
+                client_mf = MiroFishClient()
+                if client_mf.health():
+                    news = mirofish_news or []
+                    if not news:
+                        logger.info(f"{symbol}: pas de news fournies pour MiroFish")
+                    else:
+                        seed = MiroFishClient.news_to_seed(news)
+                        result = client_mf.simulate(seed, mirofish_scenario, symbol)
+                        vector.mirofish_sentiment = result.sentiment_index
+            except Exception as e:
+                logger.warning(f"{symbol} / mirofish: {e}")
 
         # Enrichissement macro
         if macro is not None:
