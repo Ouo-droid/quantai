@@ -9,13 +9,11 @@ Lance : uv run pytest tests/test_mirofish_client.py -v
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from simulation.mirofish_client import MiroFishClient, SimulationResult
-
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -41,7 +41,7 @@ def main(symbol: str = "AAPL") -> None:
     result = mf.simulate(seed, scenario="market_news", symbol=symbol)
 
     if result.sentiment_index is not None:
-        print(f"\nRésultat :")
+        print("\nRésultat :")
         print(f"  sentiment_index : {result.sentiment_index:+.3f}")
         print(f"  panic_spread    : {result.panic_spread:.3f}")
         print(f"  latency         : {result.latency_ms:.0f}ms")

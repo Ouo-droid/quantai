@@ -67,6 +67,7 @@ agents = [
 line-length = 120
 lint.select = ["E", "F", "I", "UP"]
 lint.ignore = ["E402", "E501"] # Ignore long lines and non-top-level imports
+exclude = ["signals/agents/quantagent"]
 
 [tool.mypy]
 python_version = "3.11"
