@@ -27,7 +27,9 @@ from pydantic import BaseModel
 
 load_dotenv()
 
-OPENBB_API_URL = os.getenv("OPENBB_API_URL", "http://127.0.0.1:6900")
+# Si la variable est vide ou absente, on utilise localhost par défaut.
+# Cela évite les erreurs de protocole httpx (UnsupportedProtocol) si l'env var est "".
+OPENBB_API_URL = os.getenv("OPENBB_API_URL") or "http://127.0.0.1:6900"
 
 
 # ---------------------------------------------------------------------------
