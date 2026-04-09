@@ -59,7 +59,7 @@ agents = [
     "mplfinance>=0.12.0",
     "Pillow>=10.0.0",
     "flask>=3.0.0",
-    "flask-cors>=4.0.0",
+    "flask-cors>=6.0.0",
 ]
 
 [tool.ruff]
