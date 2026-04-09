@@ -17,16 +17,15 @@ Usage :
 from __future__ import annotations
 
 import json
-import os
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass
 from typing import Literal
 
 from anthropic import Anthropic
 from dotenv import load_dotenv
 from loguru import logger
 
-from signals.aggregator import SignalVector
 from execution.risk import Portfolio, RiskEngine, RiskLimits
+from signals.aggregator import SignalVector
 
 load_dotenv()
 

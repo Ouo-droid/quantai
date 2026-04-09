@@ -16,9 +16,8 @@ Usage :
 
 from __future__ import annotations
 
-import statistics
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from loguru import logger
@@ -227,7 +226,7 @@ class RiskEngine:
         limit: float | None,
     ) -> None:
         self._log.append({
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "symbol": symbol,
             "outcome": outcome,
             "rule": rule,

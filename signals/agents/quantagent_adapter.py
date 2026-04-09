@@ -24,8 +24,9 @@ import json
 import os
 import sys
 import time
-from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
-from dataclasses import dataclass, field
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FuturesTimeoutError
+from dataclasses import dataclass
 from pathlib import Path
 
 import pandas as pd
@@ -185,8 +186,8 @@ class QuantAgentAdapter:
         if str(_QUANTAGENT_PATH) not in sys.path:
             sys.path.insert(0, str(_QUANTAGENT_PATH))
 
-        from trading_graph import TradingGraph  # type: ignore
         import static_util  # type: ignore
+        from trading_graph import TradingGraph  # type: ignore
 
         # Prépare les données (30 dernières bougies)
         kline_data = self._to_kline_dict(prices)

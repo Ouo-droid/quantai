@@ -23,7 +23,7 @@ import httpx
 import pandas as pd
 from dotenv import load_dotenv
 from loguru import logger
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 load_dotenv()
 

@@ -18,7 +18,7 @@ Usage :
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import pandas as pd
@@ -37,7 +37,6 @@ from .factors.value_quality_vol import (
     VolatilityFactor,
 )
 
-
 # ---------------------------------------------------------------------------
 # Vecteur de signal — contrat d'interface
 # ---------------------------------------------------------------------------
@@ -52,7 +51,7 @@ class SignalVector:
     """
 
     symbol: str
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     # Facteurs quantitatifs
     momentum_3m: float | None = None

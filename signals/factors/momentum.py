@@ -18,7 +18,7 @@ import numpy as np
 import pandas as pd
 from loguru import logger
 
-from .base import BaseFactor, FactorResult
+from .base import BaseFactor
 
 
 class MomentumFactor(BaseFactor):
