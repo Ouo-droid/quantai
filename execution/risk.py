@@ -188,17 +188,26 @@ class RiskEngine:
         return order
 
     def _check_position_size(self, order: TradeOrder) -> TradeOrder:
-        """Réduit size_pct si dépasse max_position_pct."""
-        if order.size_pct > self.limits.max_position_pct:
+        """Réduit size_pct si dépasse max_position_pct (incluant l'exposition actuelle)."""
+        current_pct = self.portfolio.position_pct(order.symbol)
+        total_pct = current_pct + order.size_pct
+
+        if total_pct > self.limits.max_position_pct:
             original = order.size_pct
-            order.size_pct = self.limits.max_position_pct
-            logger.info(f"[RiskEngine] {order.symbol} position size reduced {original:.0%} → {order.size_pct:.0%}")
+            # On ne peut ajouter que ce qui manque pour atteindre la limite
+            allowed_add = max(0.0, self.limits.max_position_pct - current_pct)
+            order.size_pct = allowed_add
+
+            logger.info(
+                f"[RiskEngine] {order.symbol} position size adjusted {original:.1%} → {order.size_pct:.1%} "
+                f"(current={current_pct:.1%}, limit={self.limits.max_position_pct:.1%})"
+            )
             self._record(
                 order.symbol,
                 "adjusted",
                 "position_size_reduced",
                 original,
-                self.limits.max_position_pct,
+                allowed_add,
             )
         return order
 
