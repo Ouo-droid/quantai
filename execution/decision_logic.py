@@ -510,6 +510,17 @@ class TemporalDecisionEngine:
                 )
 
             if self._is_in_trading_window(now):
+                # Guard: do not enter if confidence is too low (TradeOrder.__post_init__
+                # would silently override to FLAT, creating a phantom position).
+                if confidence < self.params.min_confidence:
+                    return DecisionAction(
+                        symbol=symbol,
+                        state_before=state_before,
+                        state_after="CONFIRMED",
+                        reason=f"confidence too low to enter ({confidence:.2f} < {self.params.min_confidence})",
+                        n_signals_aligned=n_aligned,
+                    )
+
                 size = self._compute_size(state)
                 entry_dir = cast(Direction, state.direction or "LONG")
                 trade_order = TradeOrder(
