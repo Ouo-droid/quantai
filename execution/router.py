@@ -87,8 +87,8 @@ class AlpacaRouter:
             client = TradingClient(APCA_KEY, APCA_SECRET, paper=True)
             account = client.get_account()
             logger.info(
-                f"Alpaca paper account : cash=${float(account.cash):,.0f} "
-                f"equity=${float(account.equity):,.0f}"
+                f"Alpaca paper account : cash=${float(getattr(account, 'cash')):,.0f} "  # type: ignore
+                f"equity=${float(getattr(account, 'equity')):,.0f}"  # type: ignore
             )
             return True
         except Exception as e:
@@ -103,12 +103,12 @@ class AlpacaRouter:
             client = TradingClient(APCA_KEY, APCA_SECRET, paper=True)
             acc = client.get_account()
             return {
-                "cash":            float(acc.cash),
-                "equity":          float(acc.equity),
-                "buying_power":    float(acc.buying_power),
-                "portfolio_value": float(acc.portfolio_value),
-                "pnl_today":       float(acc.equity) - float(acc.last_equity),
-                "status":          acc.status,
+                "cash":            float(acc.cash),  # type: ignore
+                "equity":          float(acc.equity),  # type: ignore
+                "buying_power":    float(acc.buying_power),  # type: ignore
+                "portfolio_value": float(acc.portfolio_value),  # type: ignore
+                "pnl_today":       float(acc.equity) - float(acc.last_equity),  # type: ignore
+                "status":          acc.status,  # type: ignore
             }
         except Exception as e:
             logger.warning(f"get_account() failed : {e}")
@@ -123,13 +123,13 @@ class AlpacaRouter:
             positions = client.get_all_positions()
             return [
                 {
-                    "symbol":         p.symbol,
-                    "qty":            float(p.qty),
-                    "side":           p.side.value,
-                    "avg_entry":      float(p.avg_entry_price),
-                    "market_val":     float(p.market_value),
-                    "unrealized_pnl": float(p.unrealized_pl),
-                    "unrealized_pct": float(p.unrealized_plpc) * 100,
+                    "symbol":         p.symbol,  # type: ignore
+                    "qty":            float(p.qty),  # type: ignore
+                    "side":           p.side.value,  # type: ignore
+                    "avg_entry":      float(p.avg_entry_price),  # type: ignore
+                    "market_val":     float(p.market_value),  # type: ignore
+                    "unrealized_pnl": float(p.unrealized_pl),  # type: ignore
+                    "unrealized_pct": float(p.unrealized_plpc) * 100,  # type: ignore
                 }
                 for p in positions
             ]
@@ -147,13 +147,13 @@ class AlpacaRouter:
             orders = client.get_orders(filter=GetOrdersRequest(limit=limit))
             return [
                 {
-                    "id":         str(o.id),
-                    "symbol":     o.symbol,
-                    "side":       o.side.value,
-                    "qty":        float(o.qty or 0),
-                    "filled_qty": float(o.filled_qty or 0),
-                    "status":     o.status.value,
-                    "created_at": str(o.created_at),
+                    "id":         str(o.id),  # type: ignore
+                    "symbol":     o.symbol,  # type: ignore
+                    "side":       o.side.value,  # type: ignore
+                    "qty":        float(o.qty or 0),  # type: ignore
+                    "filled_qty": float(o.filled_qty or 0),  # type: ignore
+                    "status":     o.status.value,  # type: ignore
+                    "created_at": str(o.created_at),  # type: ignore
                 }
                 for o in orders
             ]
@@ -209,18 +209,18 @@ class AlpacaRouter:
             response = client.submit_order(market_order)
 
             fill = OrderFill(
-                order_id=str(response.id),
+                order_id=str(response.id),  # type: ignore
                 symbol=symbol,
                 direction=order.direction.lower(),
-                qty=float(response.qty or 0),
-                filled_qty=float(response.filled_qty or 0),
+                qty=float(response.qty or 0),  # type: ignore
+                filled_qty=float(response.filled_qty or 0),  # type: ignore
                 filled_avg_price=(
-                    float(response.filled_avg_price) if response.filled_avg_price else None
+                    float(response.filled_avg_price) if response.filled_avg_price else None  # type: ignore
                 ),
-                status=response.status.value,
-                submitted_at=response.created_at or datetime.now(),
+                status=response.status.value,  # type: ignore
+                submitted_at=response.created_at or datetime.now(),  # type: ignore
                 rationale=getattr(order, "rationale", ""),
-                raw={"id": str(response.id), "status": response.status.value},
+                raw={"id": str(response.id), "status": response.status.value},  # type: ignore
             )
 
             logger.info(f"{symbol} → {fill}")

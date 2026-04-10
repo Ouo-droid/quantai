@@ -60,8 +60,8 @@ class QuantMuseAdapter:
     def __init__(self, lookback_train: int = 504, forward_days: int = 21):
         self.lookback_train = lookback_train
         self.forward_days = forward_days
-        self._xgb_model = None
-        self._rf_model = None
+        self._xgb_model: Any = None
+        self._rf_model: Any = None
         self._is_trained = False
         self._feature_names: list[str] = []
         self._model_path = MODEL_PATH
