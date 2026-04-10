@@ -19,7 +19,6 @@ import os
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
 
 import httpx
 from loguru import logger
@@ -162,7 +161,7 @@ class MiroFishClient:
         # Format 2 : {"results": {"sentiment": -0.42}}
         elif "results" in data and isinstance(data["results"], dict):
             r = data["results"]
-            sentiment = float(r.get("sentiment", r.get("sentiment_index", 0.0)))
+            sentiment = float(r.get("sentiment", r.get("sentiment_index", 0.0)) or 0.0)
 
         # Format 3 : {"agent_states": [...]} → moyenne des états
         elif "agent_states" in data:

@@ -64,6 +64,8 @@ class AgentSignal:
     indicator_report: str | None = None
     pattern_report: str | None = None
     trend_report: str | None = None
+    github_report: str | None = None
+    github_repos: list[dict] | None = None
     confidence: float | None = None  # 0.0 → 1.0 (déduit du risk_reward_ratio)
     latency_ms: float = 0.0
 
@@ -279,6 +281,8 @@ class QuantAgentAdapter:
         indicator_report = state.get("indicator_report")
         pattern_report = state.get("pattern_report")
         trend_report = state.get("trend_report")
+        github_report = state.get("github_report")
+        github_repos = state.get("github_repos")
 
         direction, bias, confidence = self._parse_decision(raw_decision)
 
@@ -288,6 +292,8 @@ class QuantAgentAdapter:
             indicator_report=indicator_report,
             pattern_report=pattern_report,
             trend_report=trend_report,
+            github_report=github_report,
+            github_repos=github_repos,
             confidence=confidence,
         )
 
