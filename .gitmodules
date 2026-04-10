@@ -1,3 +1,0 @@
-[submodule "signals/agents/quantagent"]
-	path = signals/agents/quantagent
-	url = https://github.com/Y-Research-SBU/QuantAgent

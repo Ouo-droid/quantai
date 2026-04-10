@@ -1,0 +1,93 @@
+
+from agent_state import IndicatorAgentState
+from decision_agent import create_final_trade_decider
+from decision_journal import DecisionJournal
+from execution_exit import ExecutionExitManager, create_execution_exit_node
+from github_agent import create_github_agent
+from graph_util import TechnicalTools
+from indicator_agent import create_indicator_agent
+from langchain_openai import ChatOpenAI
+from langgraph.graph import END, START, StateGraph
+from pattern_agent import create_pattern_agent
+from regime_risk_calibrator import RegimeRiskCalibrator
+from trend_agent import create_trend_agent
+
+
+class SetGraph:
+    def __init__(
+        self,
+        agent_llm: ChatOpenAI,
+        graph_llm: ChatOpenAI,
+        toolkit: TechnicalTools,
+        # tool_nodes: Dict[str, ToolNode],
+    ):
+        self.agent_llm = agent_llm
+        self.graph_llm = graph_llm
+        self.toolkit = toolkit
+        # self.tool_nodes = tool_nodes
+
+    def set_graph(self):
+        # Create analyst nodes
+        agent_nodes = {}
+        all_agents = ["indicator", "pattern", "trend", "github"]
+
+        # create nodes for indicator agent
+        agent_nodes["indicator"] = create_indicator_agent(self.graph_llm, self.toolkit)
+        # tool_nodes["indicator"] = self.tool_nodes["indicator"]
+
+        # create nodes for pattern agent
+        agent_nodes["pattern"] = create_pattern_agent(
+            self.agent_llm, self.graph_llm, self.toolkit
+        )
+        # tool_nodes["pattern"] = self.tool_nodes["pattern"]
+
+        # create nodes for trend agent
+        agent_nodes["trend"] = create_trend_agent(
+            self.agent_llm, self.graph_llm, self.toolkit
+        )
+        # tool_nodes["trend"] = self.tool_nodes["trend"]
+
+        # create nodes for github research agent
+        agent_nodes["github"] = create_github_agent(self.graph_llm)
+
+        # create nodes for decision agent (with journal logging + regime calibration)
+        journal = DecisionJournal()
+        regime_calibrator = RegimeRiskCalibrator()
+        decision_agent_node = create_final_trade_decider(
+            self.graph_llm, journal=journal, regime_calibrator=regime_calibrator
+        )
+
+        # create execution & exit node (Layer 4b)
+        exec_exit_manager = ExecutionExitManager()
+        execution_exit_node = create_execution_exit_node(exec_exit_manager)
+
+        # create graph
+        graph = StateGraph(IndicatorAgentState)
+
+        # add agent nodes to graph
+        for agent_type, cur_node in agent_nodes.items():
+            graph.add_node(f"{agent_type.capitalize()} Agent", cur_node)
+
+        # add rest of the nodes
+        graph.add_node("Decision Maker", decision_agent_node)
+        graph.add_node("Execution & Exits", execution_exit_node)
+
+        # set start of graph
+        graph.add_edge(START, "Indicator Agent")
+
+        # add edges to graph
+        for i, agent_type in enumerate(all_agents):
+            current_agent = f"{agent_type.capitalize()} Agent"
+
+            if i == len(all_agents) - 1:
+                graph.add_edge(current_agent, "Decision Maker")
+            else:
+
+                next_agent = f"{all_agents[i + 1].capitalize()} Agent"
+                graph.add_edge(current_agent, next_agent)
+
+        # Decision Maker → Execution & Exits → END
+        graph.add_edge("Decision Maker", "Execution & Exits")
+        graph.add_edge("Execution & Exits", END)
+
+        return graph.compile()
