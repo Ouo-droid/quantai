@@ -89,11 +89,12 @@ class SignalState:
     entry_date: str | None = None
     exit_date: str | None = None        # date de sortie pour cooling off
 
-    def days_watching(self) -> int:
+    def days_watching(self, now: datetime | None = None) -> int:
         if self.first_signal_date is None:
             return 0
         first = datetime.fromisoformat(self.first_signal_date)
-        return (datetime.now() - first).days
+        ref = now if now is not None else datetime.now()
+        return (ref - first).days
 
     def to_dict(self) -> dict[str, Any]:
         """Serialisable JSON pour persistance."""
@@ -509,7 +510,7 @@ class TemporalDecisionEngine:
                 )
 
             # Check max watching days
-            if state.days_watching() > self.params.max_watching_days:
+            if state.days_watching(now) > self.params.max_watching_days:
                 self._reset_state(state)
                 logger.info(f"[{symbol}] WATCHING->NEUTRAL (max watching days exceeded)")
                 return DecisionAction(
