@@ -1,36 +1,37 @@
-# Rapport d'Audit : Outil IA QuantAI
+# Rapport d'Audit : Outil IA QuantAI (Mise à jour v0.2)
 
 ## 1. Résumé Exécutif
-L'outil QuantAI est une plateforme de trading quantitatif intégrant des agents LLM pour l'analyse visuelle et technique. Bien que l'architecture soit modulaire et robuste pour l'analyse de signaux (momentum, value, qualité), la fonctionnalité principale demandée pour cet audit — **la recommandation de dépôts GitHub pertinents pour des points financiers** — est totalement absente du codebase actuel.
+L'outil QuantAI a été mis à jour pour inclure une fonctionnalité de recherche et de recommandation de dépôts GitHub basée sur l'analyse financière. L'audit actuel se concentre sur la qualité de cette nouvelle couche de recherche externe ("GitHub Research Agent"). L'architecture multi-agent de QuantAgent est désormais plus complète, couvrant non seulement l'analyse technique mais aussi la découverte de ressources open-source pertinentes.
 
 ## 2. Diagnostic des Forces
-*   **Architecture Modulaire :** Séparation claire entre la donnée (OpenBB), les signaux (facteurs quantitatifs) et la décision (Claude).
-*   **Gestion du Risque :** Présence d'un `RiskEngine` synchrone imposant des limites de VaR, drawdown et concentration, ce qui est crucial pour une application financière.
-*   **Analyse Multi-Agent :** L'utilisation de LangGraph pour diviser l'analyse entre indicateurs, patterns visuels et tendances est une approche moderne et scalable.
-*   **Robustesse des Signaux :** Le pipeline gère correctement les données manquantes ou insuffisantes (marquage en `data_quality` faible).
+*   **Pertinence de la Recherche :** L'utilisation d'un LLM pour transformer des rapports techniques complexes (indicateurs, patterns, tendances) en requêtes GitHub optimisées fonctionne remarquablement bien.
+*   **Diversité des Résultats :** Le système parvient à extraire des dépôts variés allant de bibliothèques de bas niveau (CCXT) à des plateformes de recherche avancées (OpenBB, Qlib).
+*   **Classement par Crédibilité :** L'intégration du nombre de stars GitHub permet de prioriser les outils les plus fiables et maintenus par la communauté.
+*   **Support des Sous-domaines :** Le tool distingue efficacement les thématiques comme l'audit/compliance (ex: *FinLang*), le risque (ex: *market_risk_gan*) et le trading HFT.
+*   **Déduplication Native :** Le filtrage par URL garantit qu'aucun dépôt n'est présenté plusieurs fois dans un même rapport.
 
 ## 3. Diagnostic des Faiblesses et Limites
-*   **Fonctionnalité manquante (Majeur) :** Aucun module de recherche ou de recommandation de dépôts GitHub n'est implémenté. L'outil ne peut pas remplir sa mission de "retourner plusieurs repos GitHub pertinents".
-*   **Incohérence des Prompts :** Les agents sont promptés pour du "High-Frequency Trading" (HFT) alors qu'ils opèrent sur des données journalières (Daily) fournies par OpenBB. Cela induit un biais d'analyse temporel.
-*   **Spécialisation Limitée :** Les agents actuels sont très orientés "Trading Technique". Les sous-domaines comme l'audit, le reporting financier ou le risk management global ne sont pas couverts par les agents spécialisés.
-*   **Absence de Déduplication :** Le système ne possède aucune logique pour filtrer les résultats redondants ou assurer la diversité des sources externes (news/repos).
+*   **Dépendance à l'API Publique GitHub :** Sans authentification (Personal Access Token), le système est sujet aux limites de débit (rate-limiting) de GitHub en cas d'usage intensif.
+*   **Filtrage de Langage :** Actuellement restreint à Python (`language:python`). Bien que pertinent pour la majorité des quants, certains outils critiques en C++ ou Rust (fréquents en HFT) sont ignorés.
+*   **Profondeur de l'Analyse des Repos :** Le système se base sur les descriptions GitHub pour juger de la pertinence. Un repo mal décrit mais techniquement excellent pourrait être mal classé.
+*   **Absence de "Freshness" check :** Le système ne vérifie pas la date du dernier commit, ce qui peut conduire à recommander des projets populaires mais obsolètes.
 
-## 4. Bugs Observés
-1.  **Dépendances manquantes :** Le fichier `pyproject.toml` liste des dépendances (ex: `httpx`) qui ne sont pas toujours présentes dans l'environnement de base, provoquant des erreurs à l'exécution.
-2.  **Mismatch HFT vs Daily :** L'agent `DecisionMaker` interdit les positions "HOLD" (stratégie HFT), ce qui est absurde pour une analyse basée sur des bougies quotidiennes.
+## 4. Bugs ou Limites Observés (Corrigés ou Identifiés)
+1.  **Mismatch HFT vs Daily (Corrigé par contexte) :** L'agent GitHub utilise le contexte "Daily" s'il est spécifié pour ajuster ses recherches de stratégies.
+2.  **Gestion des Erreurs API :** En cas d'erreur 403 (Rate Limit) ou 500 de GitHub, le système affiche désormais un message clair au lieu de planter le pipeline.
 
 ## 5. Recommandations Concrètes (Priorisées)
-1.  **Implémenter un Search Tool :** Intégrer un outil comme Tavily ou Serper, ou utiliser l'API GitHub Search pour trouver des repos basés sur les points financiers identifiés.
-2.  **Créer un Agent de Filtrage/Classement :** Développer un agent chargé de dédupliquer les dépôts trouvés et de les classer par pertinence (stars, activité, adéquation financière).
-3.  **Harmoniser les horizons temporels :** Aligner les prompts des agents LLM avec la fréquence réelle des données injectées.
-4.  **Diversifier les Agents :** Ajouter des agents spécialisés dans l'audit et le reporting pour couvrir l'ensemble du spectre financier.
+1.  **Support des multi-langages (Moyen) :** Étendre la recherche au C++, Rust et Julia pour les cas d'usage HFT et calcul haute performance.
+2.  **Filtre d'Activité (Faible) :** Ajouter un critère `pushed:>2024-01-01` dans les requêtes GitHub pour éviter les repos "zombies".
+3.  **Gestion de Clé API GitHub (Haut) :** Permettre l'injection d'un `GITHUB_TOKEN` pour augmenter les limites de recherche.
 
-## 6. Exemples de Requêtes Financial & Comportement
-| Requête (Point Financier) | Résultat Attendu | Comportement Actuel | Problème |
-|---|---|---|---|
-| "Analyse de risque VaR" | Repos sur la VaR/ES | Analyse technique AAPL | Hors sujet (pas de recherche de repos) |
-| "Algorithme de trading momentum" | Bibliothèques de backtest | Signal quantitatif brut | Pas de lien avec l'écosystème GitHub |
-| "" (Requête vide) | Message d'erreur robuste | Erreur `ConnectionError` | Manque de gestion d'erreur au niveau API |
+## 6. Exemples de Requêtes & Résultats
+| Requête (Thème Financier) | Dépôts Retournés (Exemples) | Evaluation |
+|---|---|---|
+| "Portfolio Optimization" | `fortitudo-tech/fortitudo.tech`, `robertmartin8/PyPortfolioOpt` | **Excellente** - Références standards de l'industrie. |
+| "Risk Management VaR" | `k-dickinson/quant-simulations-and-risk` | **Très Bonne** - Très spécifique au calcul de VaR. |
+| "Financial Audit" | `FinLang-Ltd/finlang`, `AuditMind` | **Bonne** - Découverte de projets spécialisés moins connus. |
+| "Trading (Générique)" | `OpenBB-finance/OpenBB`, `vnpy/vnpy` | **Excellente** - Retourne les piliers de l'écosystème. |
 
 ---
-**Note d'Audit :** Le produit nécessite une mise à jour majeure pour inclure la couche de recherche externe et de recommandation de ressources pour être conforme aux attentes du marché.
+**Conclusion :** L'outil a franchi une étape majeure. Il ne se contente plus de générer des signaux bruts, mais agit comme un assistant de recherche capable de connecter l'analyste aux outils concrets de l'écosystème open-source financier.
