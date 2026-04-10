@@ -781,9 +781,10 @@ class ExecutionExitManager:
 
         direction = validation.direction
         kline = state.get("kline_data", {})
-        closes = kline.get("close", [])
-        highs = kline.get("high", [])
-        lows = kline.get("low", [])
+        # Support both capitalized (production: "Close") and lowercase keys
+        closes = kline.get("Close", kline.get("close", []))
+        highs = kline.get("High", kline.get("high", []))
+        lows = kline.get("Low", kline.get("low", []))
 
         # Use last close as entry price
         entry_price = closes[-1] if closes else 100.0
