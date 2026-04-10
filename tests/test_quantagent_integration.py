@@ -562,16 +562,20 @@ class TestFullGraphFlowMocked:
     """End-to-end graph flow with all external APIs mocked."""
 
     def test_graph_setup_imports_new_modules(self):
-        """graph_setup.py references DecisionJournal and RegimeRiskCalibrator."""
+        """graph_setup.py references DecisionJournal, RegimeRiskCalibrator, and ExecutionExitManager."""
         import pathlib
 
         src = pathlib.Path("signals/agents/quantagent/graph_setup.py").read_text()
         # Verify the source imports the new modules
         assert "from decision_journal import DecisionJournal" in src
         assert "from regime_risk_calibrator import RegimeRiskCalibrator" in src
-        # Verify journal and calibrator are instantiated
+        assert "from execution_exit import" in src
+        # Verify journal, calibrator, and exec/exit are instantiated
         assert "DecisionJournal()" in src
         assert "RegimeRiskCalibrator()" in src
+        assert "ExecutionExitManager()" in src
+        # Verify the new node is added to the graph
+        assert '"Execution & Exits"' in src
 
     def test_decision_agent_with_all_features(self):
         """Decision agent works with journal + regime calibrator together."""
@@ -642,3 +646,554 @@ class TestFullGraphFlowMocked:
         # Verify GitHub report is in the decision prompt
         assert "quant-strategy" in decision_result["decision_prompt"]
         assert "final_trade_decision" in decision_result
+
+    def test_execution_exit_node_in_graph_flow(self):
+        """Execution & Exit node processes decision output and produces exit plan."""
+        from decision_agent import create_final_trade_decider
+        from execution_exit import ExecutionExitManager, create_execution_exit_node
+
+        # Decision agent with mocked LLM
+        mock_llm = MagicMock()
+        mock_response = MagicMock()
+        mock_response.content = MOCK_DECISION_JSON
+        mock_llm.invoke.return_value = mock_response
+
+        decision_node = create_final_trade_decider(mock_llm)
+        state = _make_mock_state()
+        decision_result = decision_node(state)
+        state.update(decision_result)
+
+        # Execution & Exit node
+        with tempfile.TemporaryDirectory() as tmpdir:
+            from execution_exit import RMultipleJournal
+
+            r_journal = RMultipleJournal(path=Path(tmpdir) / "r.json")
+            manager = ExecutionExitManager(r_journal=r_journal)
+            exit_node = create_execution_exit_node(manager)
+            exit_result = exit_node(state)
+
+        assert "execution_exit_plan" in exit_result
+        assert "execution_exit_summary" in exit_result
+        plan = exit_result["execution_exit_plan"]
+        assert plan["entry_valid"] is True
+        assert plan["entry_direction"] == "LONG"
+        assert plan["stop_loss_price"] > 0
+        assert plan["take_profit_price"] > 0
+        assert plan["risk_per_unit"] > 0
+
+
+# ---------------------------------------------------------------------------
+# Tests: Execution & Exit Layer (Layer 4b)
+# ---------------------------------------------------------------------------
+
+
+class TestATRComputation:
+    """Tests for ATR (Average True Range) computation."""
+
+    def test_compute_atr_basic(self):
+        from execution_exit import compute_atr
+
+        highs = [105, 107, 106, 108, 110, 109, 111, 112, 110, 113, 115, 114, 116, 117, 118]
+        lows = [100, 102, 101, 103, 105, 104, 106, 107, 105, 108, 110, 109, 111, 112, 113]
+        closes = [103, 105, 104, 106, 108, 107, 109, 110, 108, 111, 113, 112, 114, 115, 116]
+
+        atr = compute_atr(highs, lows, closes, period=5)
+        assert len(atr) == len(highs)
+        assert all(v >= 0 for v in atr)
+
+    def test_compute_atr_empty(self):
+        from execution_exit import compute_atr
+
+        assert compute_atr([], [], []) == []
+
+    def test_compute_atr_mismatched_lengths(self):
+        from execution_exit import compute_atr
+
+        assert compute_atr([1, 2], [1], [1, 2]) == []
+
+    def test_compute_atr_single_bar(self):
+        from execution_exit import compute_atr
+
+        atr = compute_atr([110], [100], [105])
+        assert len(atr) == 1
+        assert atr[0] == 10.0  # high - low
+
+
+class TestEntryValidator:
+    """Tests for entry validation logic."""
+
+    def test_valid_long_entry(self):
+        from execution_exit import EntryValidator
+
+        validator = EntryValidator(min_confidence=0.60, min_risk_reward=1.2)
+        result = validator.validate({
+            "decision": "LONG",
+            "confidence": 0.82,
+            "risk_reward_ratio": 1.5,
+        })
+        assert result.is_valid is True
+        assert result.direction == "LONG"
+        assert len(result.rejection_reasons) == 0
+
+    def test_valid_short_entry(self):
+        from execution_exit import EntryValidator
+
+        validator = EntryValidator()
+        result = validator.validate({
+            "decision": "SHORT",
+            "confidence": 0.75,
+            "risk_reward_ratio": 1.6,
+        })
+        assert result.is_valid is True
+        assert result.direction == "SHORT"
+
+    def test_reject_low_confidence(self):
+        from execution_exit import EntryValidator
+
+        validator = EntryValidator(min_confidence=0.70)
+        result = validator.validate({
+            "decision": "LONG",
+            "confidence": 0.50,
+            "risk_reward_ratio": 1.5,
+        })
+        assert result.is_valid is False
+        assert any("confidence" in r for r in result.rejection_reasons)
+
+    def test_reject_flat_direction(self):
+        from execution_exit import EntryValidator
+
+        validator = EntryValidator()
+        result = validator.validate({
+            "decision": "FLAT",
+            "confidence": 0.90,
+            "risk_reward_ratio": 2.0,
+        })
+        assert result.is_valid is False
+        assert any("direction" in r for r in result.rejection_reasons)
+
+    def test_reject_low_risk_reward(self):
+        from execution_exit import EntryValidator
+
+        validator = EntryValidator(min_risk_reward=1.5)
+        result = validator.validate({
+            "decision": "LONG",
+            "confidence": 0.80,
+            "risk_reward_ratio": 1.1,
+        })
+        assert result.is_valid is False
+        assert any("risk_reward" in r for r in result.rejection_reasons)
+
+    def test_reject_multiple_reasons(self):
+        from execution_exit import EntryValidator
+
+        validator = EntryValidator(min_confidence=0.80, min_risk_reward=1.5)
+        result = validator.validate({
+            "decision": "FLAT",
+            "confidence": 0.30,
+            "risk_reward_ratio": 0.5,
+        })
+        assert result.is_valid is False
+        assert len(result.rejection_reasons) == 3
+
+    def test_empty_decision_data(self):
+        from execution_exit import EntryValidator
+
+        validator = EntryValidator()
+        result = validator.validate({})
+        assert result.is_valid is False
+
+
+class TestStopLossCalculator:
+    """Tests for stop-loss calculation via ATR and market structure."""
+
+    def test_atr_stop_long(self):
+        from execution_exit import StopLossCalculator
+
+        calc = StopLossCalculator(atr_multiplier=2.0, atr_period=5)
+        highs = [105, 107, 106, 108, 110, 109, 111]
+        lows = [100, 102, 101, 103, 105, 104, 106]
+        closes = [103, 105, 104, 106, 108, 107, 109]
+
+        stop = calc.compute("LONG", 109.0, highs, lows, closes)
+        assert stop.stop_price < 109.0
+        assert stop.distance_pct > 0
+
+    def test_atr_stop_short(self):
+        from execution_exit import StopLossCalculator
+
+        calc = StopLossCalculator(atr_multiplier=2.0, atr_period=5)
+        highs = [105, 107, 106, 108, 110, 109, 111]
+        lows = [100, 102, 101, 103, 105, 104, 106]
+        closes = [103, 105, 104, 106, 108, 107, 109]
+
+        stop = calc.compute("SHORT", 109.0, highs, lows, closes)
+        assert stop.stop_price > 109.0
+        assert stop.distance_pct > 0
+
+    def test_fixed_fallback_when_no_data(self):
+        from execution_exit import StopLossCalculator
+
+        calc = StopLossCalculator(fixed_stop_pct=0.03)
+        stop = calc.compute("LONG", 100.0)
+        assert stop.method == "fixed"
+        assert stop.stop_price == pytest.approx(97.0, abs=0.01)
+        assert stop.distance_pct == pytest.approx(0.03)
+
+    def test_structure_stop_long(self):
+        from execution_exit import StopLossCalculator
+
+        calc = StopLossCalculator()
+        # Only lows provided (no highs/closes for ATR), structure should work
+        lows = [95, 96, 94, 97, 98, 96, 99]
+        stop = calc._structure_stop("LONG", 100.0, None, lows)
+        assert stop is not None
+        assert stop.method == "structure"
+        assert stop.stop_price == 94  # min of recent lows
+
+    def test_structure_stop_short(self):
+        from execution_exit import StopLossCalculator
+
+        calc = StopLossCalculator()
+        highs = [105, 107, 106, 108, 110, 109, 111]
+        stop = calc._structure_stop("SHORT", 105.0, highs, None)
+        assert stop is not None
+        assert stop.method == "structure"
+        assert stop.stop_price == 111  # max of recent highs
+
+    def test_stop_level_to_dict(self):
+        from execution_exit import StopLossLevel
+
+        sl = StopLossLevel(method="atr", stop_price=98.5, distance_pct=0.015, atr_multiple=2.0)
+        d = sl.to_dict()
+        assert d["method"] == "atr"
+        assert d["stop_price"] == 98.5
+
+
+class TestTakeProfitManager:
+    """Tests for take-profit and trailing stop logic."""
+
+    def test_compute_tp_long(self):
+        from execution_exit import TakeProfitManager
+
+        mgr = TakeProfitManager(default_r_target=2.0)
+        plan = mgr.compute("LONG", entry_price=100.0, stop_distance=2.0)
+        assert plan.initial_target_price == pytest.approx(104.0)
+        assert plan.initial_target_pct == pytest.approx(0.04)
+        assert plan.trailing_active is True
+
+    def test_compute_tp_short(self):
+        from execution_exit import TakeProfitManager
+
+        mgr = TakeProfitManager(default_r_target=2.0)
+        plan = mgr.compute("SHORT", entry_price=100.0, stop_distance=2.0)
+        assert plan.initial_target_price == pytest.approx(96.0)
+
+    def test_partial_targets_default(self):
+        from execution_exit import TakeProfitManager
+
+        mgr = TakeProfitManager()
+        plan = mgr.compute("LONG", entry_price=100.0, stop_distance=2.0)
+        assert len(plan.partial_targets) == 2
+        assert plan.partial_targets[0]["r_multiple"] == 1.5
+        assert plan.partial_targets[1]["exit_pct"] == 1.0
+
+    def test_trailing_stop_long(self):
+        from execution_exit import TakeProfitManager
+
+        mgr = TakeProfitManager(trailing_offset_pct=0.01)
+        trail_stop = mgr.compute_trailing_stop("LONG", highest_price=110.0, lowest_price=95.0)
+        assert trail_stop == pytest.approx(108.9)
+
+    def test_trailing_stop_short(self):
+        from execution_exit import TakeProfitManager
+
+        mgr = TakeProfitManager(trailing_offset_pct=0.01)
+        trail_stop = mgr.compute_trailing_stop("SHORT", highest_price=110.0, lowest_price=90.0)
+        assert trail_stop == pytest.approx(90.9)
+
+    def test_tp_plan_to_dict(self):
+        from execution_exit import TakeProfitManager
+
+        mgr = TakeProfitManager()
+        plan = mgr.compute("LONG", entry_price=100.0, stop_distance=2.0)
+        d = plan.to_dict()
+        assert "initial_target_price" in d
+        assert "trailing_active" in d
+        assert "partial_targets" in d
+
+
+class TestTimeBasedExit:
+    """Tests for time-based exit rules."""
+
+    def test_within_limits(self):
+        from execution_exit import TimeBasedExit
+
+        tbe = TimeBasedExit(max_holding_bars=20)
+        result = tbe.evaluate(bars_held=5)
+        assert result.should_exit is False
+        assert result.reason == "within_time_limits"
+
+    def test_max_holding_reached(self):
+        from execution_exit import TimeBasedExit
+
+        tbe = TimeBasedExit(max_holding_bars=20)
+        result = tbe.evaluate(bars_held=20)
+        assert result.should_exit is True
+        assert "max_holding" in result.reason
+
+    def test_weekend_exit(self):
+        from execution_exit import TimeBasedExit
+
+        tbe = TimeBasedExit()
+        result = tbe.evaluate(bars_held=3, is_weekend_approaching=True)
+        assert result.should_exit is True
+        assert "weekend" in result.reason
+
+    def test_stale_trade(self):
+        from execution_exit import TimeBasedExit
+
+        tbe = TimeBasedExit(stale_bars=10, stale_min_pnl_pct=0.002)
+        result = tbe.evaluate(bars_held=12, current_pnl_pct=0.0001)
+        assert result.should_exit is True
+        assert "stale" in result.reason
+
+    def test_not_stale_with_profit(self):
+        from execution_exit import TimeBasedExit
+
+        tbe = TimeBasedExit(stale_bars=10, stale_min_pnl_pct=0.002)
+        result = tbe.evaluate(bars_held=12, current_pnl_pct=0.01)
+        assert result.should_exit is False
+
+    def test_time_exit_to_dict(self):
+        from execution_exit import TimeBasedExit
+
+        tbe = TimeBasedExit()
+        result = tbe.evaluate(bars_held=5)
+        d = result.to_dict()
+        assert "should_exit" in d
+        assert "bars_held" in d
+
+
+class TestRMultipleJournal:
+    """Tests for R-multiple trade journaling."""
+
+    def test_open_and_close_trade(self):
+        from execution_exit import RMultipleJournal
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            journal = RMultipleJournal(path=Path(tmpdir) / "r.json")
+            journal.open_trade("AAPL", "LONG", 100.0, 98.0, 104.0)
+
+            entries = journal.get_entries()
+            assert len(entries) == 1
+            assert entries[0].status == "open"
+            assert entries[0].risk_per_unit == 2.0
+
+            closed = journal.close_trade("AAPL", exit_price=103.0, exit_reason="take_profit")
+            assert closed is not None
+            assert closed.status == "closed"
+            assert closed.realized_r == pytest.approx(1.5)  # (103-100)/2
+            assert closed.pnl_pct == pytest.approx(0.03)
+
+    def test_short_trade_r_multiple(self):
+        from execution_exit import RMultipleJournal
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            journal = RMultipleJournal(path=Path(tmpdir) / "r.json")
+            journal.open_trade("TSLA", "SHORT", 200.0, 204.0, 192.0)
+
+            closed = journal.close_trade("TSLA", exit_price=196.0, exit_reason="target")
+            assert closed is not None
+            assert closed.realized_r == pytest.approx(1.0)  # (200-196)/4
+
+    def test_losing_trade_negative_r(self):
+        from execution_exit import RMultipleJournal
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            journal = RMultipleJournal(path=Path(tmpdir) / "r.json")
+            journal.open_trade("GOOG", "LONG", 100.0, 98.0, 104.0)
+
+            closed = journal.close_trade("GOOG", exit_price=97.0, exit_reason="stop_loss")
+            assert closed is not None
+            assert closed.realized_r == pytest.approx(-1.5)  # (97-100)/2
+
+    def test_persistence(self):
+        from execution_exit import RMultipleJournal
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "r.json"
+            j1 = RMultipleJournal(path=path)
+            j1.open_trade("AAPL", "LONG", 100.0, 98.0, 104.0)
+
+            j2 = RMultipleJournal(path=path)
+            assert len(j2.get_entries()) == 1
+
+    def test_filter_by_status(self):
+        from execution_exit import RMultipleJournal
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            journal = RMultipleJournal(path=Path(tmpdir) / "r.json")
+            journal.open_trade("AAPL", "LONG", 100.0, 98.0, 104.0)
+            journal.open_trade("TSLA", "SHORT", 200.0, 204.0, 192.0)
+            journal.close_trade("AAPL", exit_price=103.0, exit_reason="tp")
+
+            open_trades = journal.get_entries(status="open")
+            assert len(open_trades) == 1
+            assert open_trades[0].stock_name == "TSLA"
+
+            closed_trades = journal.get_entries(status="closed")
+            assert len(closed_trades) == 1
+            assert closed_trades[0].stock_name == "AAPL"
+
+    def test_summary_stats(self):
+        from execution_exit import RMultipleJournal
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            journal = RMultipleJournal(path=Path(tmpdir) / "r.json")
+            # 2 winners, 1 loser
+            journal.open_trade("AAPL", "LONG", 100.0, 98.0, 104.0)
+            journal.close_trade("AAPL", exit_price=104.0, exit_reason="tp")  # +2R
+
+            journal.open_trade("TSLA", "LONG", 50.0, 48.0, 54.0)
+            journal.close_trade("TSLA", exit_price=53.0, exit_reason="tp")  # +1.5R
+
+            journal.open_trade("GOOG", "LONG", 100.0, 98.0, 104.0)
+            journal.close_trade("GOOG", exit_price=97.0, exit_reason="sl")  # -1.5R
+
+            s = journal.summary()
+            assert s["total_trades"] == 3
+            assert s["winners"] == 2
+            assert s["losers"] == 1
+            assert s["win_rate"] == pytest.approx(2 / 3, abs=0.01)
+            assert s["best_r"] == pytest.approx(2.0)
+            assert s["worst_r"] == pytest.approx(-1.5)
+
+    def test_close_nonexistent_trade(self):
+        from execution_exit import RMultipleJournal
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            journal = RMultipleJournal(path=Path(tmpdir) / "r.json")
+            result = journal.close_trade("AAPL", exit_price=100.0, exit_reason="test")
+            assert result is None
+
+    def test_clear(self):
+        from execution_exit import RMultipleJournal
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            journal = RMultipleJournal(path=Path(tmpdir) / "r.json")
+            journal.open_trade("AAPL", "LONG", 100.0, 98.0, 104.0)
+            assert len(journal.get_entries()) == 1
+            journal.clear()
+            assert len(journal.get_entries()) == 0
+
+
+class TestExecutionExitManager:
+    """Tests for the full Execution & Exit orchestrator."""
+
+    def test_process_valid_long_decision(self):
+        from execution_exit import ExecutionExitManager, RMultipleJournal
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            r_journal = RMultipleJournal(path=Path(tmpdir) / "r.json")
+            manager = ExecutionExitManager(r_journal=r_journal)
+
+            state = _make_mock_state()
+            plan = manager.process(state, MOCK_DECISION_JSON)
+
+            assert plan.entry_valid is True
+            assert plan.entry_direction == "LONG"
+            assert plan.entry_confidence == pytest.approx(0.82)
+            assert plan.stop_loss_price > 0
+            assert plan.take_profit_price > plan.stop_loss_price
+            assert plan.risk_per_unit > 0
+            assert plan.initial_r_target > 0
+
+            # R-journal should have an open trade
+            entries = r_journal.get_entries()
+            assert len(entries) == 1
+            assert entries[0].status == "open"
+
+    def test_process_rejected_decision(self):
+        from execution_exit import EntryValidator, ExecutionExitManager
+
+        validator = EntryValidator(min_confidence=0.95)
+        manager = ExecutionExitManager(entry_validator=validator)
+
+        state = _make_mock_state()
+        plan = manager.process(state, MOCK_DECISION_JSON)
+
+        assert plan.entry_valid is False
+        assert len(plan.entry_rejection_reasons) > 0
+
+    def test_process_invalid_json(self):
+        from execution_exit import ExecutionExitManager
+
+        manager = ExecutionExitManager()
+        state = _make_mock_state()
+        plan = manager.process(state, "not valid json")
+
+        assert plan.entry_valid is False
+
+    def test_process_with_ohlc_data(self):
+        from execution_exit import ExecutionExitManager, RMultipleJournal
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            r_journal = RMultipleJournal(path=Path(tmpdir) / "r.json")
+            manager = ExecutionExitManager(r_journal=r_journal)
+
+            state = _make_mock_state()
+            state["kline_data"] = {
+                "open": [100, 101, 102, 103, 104, 105, 106],
+                "high": [105, 107, 106, 108, 110, 109, 111],
+                "low": [99, 100, 101, 102, 103, 104, 105],
+                "close": [103, 105, 104, 106, 108, 107, 109],
+                "volume": [1000, 1100, 900, 1200, 1300, 1000, 1100],
+            }
+
+            plan = manager.process(state, MOCK_DECISION_JSON)
+            assert plan.entry_valid is True
+            # With real OHLC data, stop should use ATR or structure
+            assert plan.stop_loss_method in ("atr", "structure", "fixed")
+            assert plan.stop_loss_price < 109  # below entry for LONG
+
+    def test_exit_plan_format_prompt(self):
+        from execution_exit import ExecutionExitManager, RMultipleJournal
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            r_journal = RMultipleJournal(path=Path(tmpdir) / "r.json")
+            manager = ExecutionExitManager(r_journal=r_journal)
+            state = _make_mock_state()
+            plan = manager.process(state, MOCK_DECISION_JSON)
+
+            summary = plan.format_prompt_section()
+            assert "Execution & Exit Plan" in summary
+            assert "LONG" in summary
+            assert "Stop-loss" in summary
+            assert "Take-profit" in summary
+
+    def test_exit_plan_rejected_format(self):
+        from execution_exit import EntryValidator, ExecutionExitManager
+
+        validator = EntryValidator(min_confidence=0.99)
+        manager = ExecutionExitManager(entry_validator=validator)
+        state = _make_mock_state()
+        plan = manager.process(state, MOCK_DECISION_JSON)
+
+        summary = plan.format_prompt_section()
+        assert "REJECTED" in summary
+
+    def test_execution_exit_plan_to_dict(self):
+        from execution_exit import ExecutionExitManager, RMultipleJournal
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            r_journal = RMultipleJournal(path=Path(tmpdir) / "r.json")
+            manager = ExecutionExitManager(r_journal=r_journal)
+            state = _make_mock_state()
+            plan = manager.process(state, MOCK_DECISION_JSON)
+
+            d = plan.to_dict()
+            assert "entry_valid" in d
+            assert "stop_loss_method" in d
+            assert "take_profit_price" in d
+            assert "risk_per_unit" in d
+            assert "partial_targets" in d

@@ -72,6 +72,16 @@ class IndicatorAgentState(TypedDict):
         "Recent daily returns used for regime detection and risk calibration",
     ]
 
+    # Execution & Exit plan (Layer 4b)
+    execution_exit_plan: Annotated[
+        dict,
+        "Complete execution and exit plan with stop-loss, take-profit, trailing, and R-multiple",
+    ]
+    execution_exit_summary: Annotated[
+        str,
+        "Human-readable summary of the execution and exit plan",
+    ]
+
     # Final analysis and messaging context
     analysis_results: Annotated[str, "Computed result of the analysis or decision"]
     messages: Annotated[

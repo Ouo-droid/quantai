@@ -2,6 +2,7 @@
 from agent_state import IndicatorAgentState
 from decision_agent import create_final_trade_decider
 from decision_journal import DecisionJournal
+from execution_exit import ExecutionExitManager, create_execution_exit_node
 from github_agent import create_github_agent
 from graph_util import TechnicalTools
 from indicator_agent import create_indicator_agent
@@ -56,6 +57,10 @@ class SetGraph:
             self.graph_llm, journal=journal, regime_calibrator=regime_calibrator
         )
 
+        # create execution & exit node (Layer 4b)
+        exec_exit_manager = ExecutionExitManager()
+        execution_exit_node = create_execution_exit_node(exec_exit_manager)
+
         # create graph
         graph = StateGraph(IndicatorAgentState)
 
@@ -65,6 +70,7 @@ class SetGraph:
 
         # add rest of the nodes
         graph.add_node("Decision Maker", decision_agent_node)
+        graph.add_node("Execution & Exits", execution_exit_node)
 
         # set start of graph
         graph.add_edge(START, "Indicator Agent")
@@ -80,7 +86,8 @@ class SetGraph:
                 next_agent = f"{all_agents[i + 1].capitalize()} Agent"
                 graph.add_edge(current_agent, next_agent)
 
-        # Decision Maker Process
-        graph.add_edge("Decision Maker", END)
+        # Decision Maker → Execution & Exits → END
+        graph.add_edge("Decision Maker", "Execution & Exits")
+        graph.add_edge("Execution & Exits", END)
 
         return graph.compile()
