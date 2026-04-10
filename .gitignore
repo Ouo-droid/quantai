@@ -35,6 +35,9 @@ signals/agents/quantmuse_model.pkl
 *.log
 logs/
 
+# Signal states (local, not versioned)
+execution/signal_states.json
+
 # DB
 *.db
 *.sqlite
