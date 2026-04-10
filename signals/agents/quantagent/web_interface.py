@@ -4,14 +4,12 @@ import re
 import urllib.parse
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import pandas as pd
+import static_util
 import yfinance as yf
 from flask import Flask, jsonify, render_template, request, send_file
-from openai import OpenAI
-
-import static_util
 from trading_graph import TradingGraph
 
 app = Flask(__name__)
@@ -234,7 +232,7 @@ class WebTradingAnalyzer:
 
     def run_analysis(
         self, df: pd.DataFrame, asset_name: str, timeframe: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Run the trading analysis on the provided DataFrame."""
         try:
             # Debug: Check DataFrame structure
@@ -361,7 +359,7 @@ class WebTradingAnalyzer:
             else:
                 return {"success": False, "error": f"❌ Analysis Error: {error_msg}"}
 
-    def extract_analysis_results(self, results: Dict[str, Any]) -> Dict[str, Any]:
+    def extract_analysis_results(self, results: dict[str, Any]) -> dict[str, Any]:
         """Extract and format analysis results for web display."""
         if not results["success"]:
             return {"error": results["error"]}
@@ -422,7 +420,7 @@ class WebTradingAnalyzer:
             "final_decision": final_decision,
         }
 
-    def get_timeframe_date_limits(self, timeframe: str) -> Dict[str, Any]:
+    def get_timeframe_date_limits(self, timeframe: str) -> dict[str, Any]:
         """Get valid date range limits for a given timeframe."""
         limits = {
             "1m": {"max_days": 7, "description": "1 minute data: max 7 days"},
@@ -453,7 +451,7 @@ class WebTradingAnalyzer:
         timeframe: str,
         start_time: str = "00:00",
         end_time: str = "23:59",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Validate date and time range for the given timeframe."""
         try:
             # Create datetime objects with time
@@ -490,7 +488,7 @@ class WebTradingAnalyzer:
         except ValueError as e:
             return {"valid": False, "error": f"Invalid date/time format: {str(e)}"}
 
-    def validate_api_key(self, provider: str = None) -> Dict[str, Any]:
+    def validate_api_key(self, provider: str = None) -> dict[str, Any]:
         """Validate the current API key by making a simple test call."""
         try:
             # Get provider from config if not provided
@@ -608,7 +606,7 @@ class WebTradingAnalyzer:
         """Load custom assets from persistent JSON file."""
         try:
             if self.custom_assets_file.exists():
-                with open(self.custom_assets_file, "r", encoding="utf-8") as f:
+                with open(self.custom_assets_file, encoding="utf-8") as f:
                     data = json.load(f)
                     if isinstance(data, list):
                         return data

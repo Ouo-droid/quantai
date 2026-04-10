@@ -1,14 +1,11 @@
-from typing import Dict
-
-from langchain_openai import ChatOpenAI
-from langgraph.graph import END, START, StateGraph
-from langgraph.prebuilt import ToolNode
 
 from agent_state import IndicatorAgentState
 from decision_agent import create_final_trade_decider
 from github_agent import create_github_agent
 from graph_util import TechnicalTools
 from indicator_agent import create_indicator_agent
+from langchain_openai import ChatOpenAI
+from langgraph.graph import END, START, StateGraph
 from pattern_agent import create_pattern_agent
 from trend_agent import create_trend_agent
 
@@ -29,7 +26,6 @@ class SetGraph:
     def set_graph(self):
         # Create analyst nodes
         agent_nodes = {}
-        tool_nodes = {}
         all_agents = ["indicator", "pattern", "trend", "github"]
 
         # create nodes for indicator agent

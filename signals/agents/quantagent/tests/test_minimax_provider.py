@@ -3,7 +3,7 @@
 import os
 import sys
 import unittest
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 
 # Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -107,7 +107,7 @@ class TestTradingGraphCreateLlm(unittest.TestCase):
         tg.config = config
 
         mock_openai.return_value = MagicMock()
-        result = tg._create_llm("minimax", "MiniMax-M2.7", 0.1)
+        tg._create_llm("minimax", "MiniMax-M2.7", 0.1)
 
         mock_openai.assert_called_once_with(
             model="MiniMax-M2.7",
@@ -231,7 +231,7 @@ class TestWebInterfaceProviderUpdate(unittest.TestCase):
         mock_tg.config = DEFAULT_CONFIG.copy()
         mock_tg_class.return_value = mock_tg
 
-        from web_interface import app, analyzer
+        from web_interface import analyzer, app
         analyzer.config = DEFAULT_CONFIG.copy()
         analyzer.trading_graph = mock_tg
 
@@ -253,7 +253,7 @@ class TestWebInterfaceProviderUpdate(unittest.TestCase):
         mock_tg.config = DEFAULT_CONFIG.copy()
         mock_tg_class.return_value = mock_tg
 
-        from web_interface import app, analyzer
+        from web_interface import analyzer, app
         analyzer.config = DEFAULT_CONFIG.copy()
         analyzer.trading_graph = mock_tg
 
@@ -273,7 +273,7 @@ class TestWebInterfaceProviderUpdate(unittest.TestCase):
         mock_tg.config = DEFAULT_CONFIG.copy()
         mock_tg_class.return_value = mock_tg
 
-        from web_interface import app, analyzer
+        from web_interface import analyzer, app
         analyzer.config = DEFAULT_CONFIG.copy()
         analyzer.trading_graph = mock_tg
 
@@ -294,7 +294,7 @@ class TestWebInterfaceProviderUpdate(unittest.TestCase):
         mock_tg.config = DEFAULT_CONFIG.copy()
         mock_tg_class.return_value = mock_tg
 
-        from web_interface import app, analyzer
+        from web_interface import analyzer, app
         config = DEFAULT_CONFIG.copy()
         config["minimax_api_key"] = "test-minimax-key-12345"
         analyzer.config = config
@@ -313,7 +313,7 @@ class TestWebInterfaceProviderUpdate(unittest.TestCase):
         mock_tg.config = DEFAULT_CONFIG.copy()
         mock_tg_class.return_value = mock_tg
 
-        from web_interface import app, analyzer
+        from web_interface import analyzer, app
         config = DEFAULT_CONFIG.copy()
         config["minimax_api_key"] = ""
         analyzer.config = config
@@ -337,7 +337,7 @@ class TestProviderSwitchBackToOpenAI(unittest.TestCase):
         mock_tg.config = DEFAULT_CONFIG.copy()
         mock_tg_class.return_value = mock_tg
 
-        from web_interface import app, analyzer
+        from web_interface import analyzer, app
         config = DEFAULT_CONFIG.copy()
         config["agent_llm_model"] = "MiniMax-M2.7"
         config["graph_llm_model"] = "MiniMax-M2.7"

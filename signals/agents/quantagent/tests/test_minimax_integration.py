@@ -27,8 +27,8 @@ class TestMiniMaxIntegration(unittest.TestCase):
 
     def test_create_llm_minimax_m27(self):
         """Should create a working MiniMax M2.7 LLM via ChatOpenAI."""
-        from trading_graph import TradingGraph
         from default_config import DEFAULT_CONFIG
+        from trading_graph import TradingGraph
 
         config = DEFAULT_CONFIG.copy()
         config["agent_llm_provider"] = "minimax"
@@ -45,8 +45,8 @@ class TestMiniMaxIntegration(unittest.TestCase):
 
     def test_minimax_simple_invoke(self):
         """Should successfully invoke MiniMax M2.7-highspeed for a simple query."""
-        from trading_graph import TradingGraph
         from default_config import DEFAULT_CONFIG
+        from trading_graph import TradingGraph
 
         config = DEFAULT_CONFIG.copy()
         config["agent_llm_provider"] = "minimax"
@@ -64,8 +64,8 @@ class TestMiniMaxIntegration(unittest.TestCase):
 
     def test_minimax_provider_full_lifecycle(self):
         """Test full lifecycle: create -> update key -> refresh."""
-        from trading_graph import TradingGraph
         from default_config import DEFAULT_CONFIG
+        from trading_graph import TradingGraph
 
         config = DEFAULT_CONFIG.copy()
         config["agent_llm_provider"] = "minimax"

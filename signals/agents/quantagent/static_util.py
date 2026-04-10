@@ -1,13 +1,12 @@
 import base64
 import io
 
+import color_style as color
 import matplotlib
 import matplotlib.pyplot as plt
 import mplfinance as mpf
 import numpy as np
 import pandas as pd
-
-import color_style as color
 from graph_util import (
     fit_trendlines_high_low,
     fit_trendlines_single,
