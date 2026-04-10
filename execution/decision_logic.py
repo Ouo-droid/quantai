@@ -27,12 +27,12 @@ import json
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 from loguru import logger
 
-from execution.decision_agent import TradeOrder
+from execution.decision_agent import Direction, TradeOrder
 from signals.aggregator import SignalVector
 
 # ---------------------------------------------------------------------------
@@ -414,10 +414,10 @@ class TemporalDecisionEngine:
                     reversal = True
 
                 if reversal:
-                    close_direction = "SHORT" if state.direction == "LONG" else "LONG"
+                    close_dir: Direction = "SHORT" if state.direction == "LONG" else "LONG"
                     close_order = TradeOrder(
                         symbol=symbol,
-                        direction=close_direction,
+                        direction=close_dir,
                         confidence=1.0,
                         size_pct=state.current_size_pct,
                         rationale=f"Signal reversal: closing {state.direction} position",
@@ -457,9 +457,10 @@ class TemporalDecisionEngine:
 
             if self._is_in_trading_window(now):
                 size = self._compute_size(state)
+                entry_dir = cast(Direction, state.direction or "LONG")
                 trade_order = TradeOrder(
                     symbol=symbol,
-                    direction=state.direction or "LONG",
+                    direction=entry_dir,
                     confidence=confidence,
                     size_pct=size,
                     stop_loss=order.stop_loss if order else 0.02,
