@@ -7,7 +7,7 @@ Tests pour TemporalDecisionEngine — donnees synthetiques, pas d'API.
 from __future__ import annotations
 
 import tempfile
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pandas as pd
@@ -155,16 +155,24 @@ class TestConfirmationDays:
         vector = _make_vector()
         order = _make_order()
 
+        day1 = datetime(2026, 4, 1, 11, 0)
+        day2 = datetime(2026, 4, 2, 11, 0)
+        day3 = datetime(2026, 4, 3, 11, 0)
+
         # Day 1: NEUTRAL -> WATCHING (confirmation_days=1)
-        engine.process("AAPL", vector, order, now=WEEKDAY_11H)
+        engine.process("AAPL", vector, order, now=day1)
+        assert engine.states["AAPL"].confirmation_days == 1
+
+        # Same day again: still 1
+        engine.process("AAPL", vector, order, now=day1 + timedelta(hours=1))
         assert engine.states["AAPL"].confirmation_days == 1
 
         # Day 2: still WATCHING (confirmation_days=2)
-        engine.process("AAPL", vector, order, now=WEEKDAY_11H)
+        engine.process("AAPL", vector, order, now=day2)
         assert engine.states["AAPL"].confirmation_days == 2
 
         # Day 3: still WATCHING (confirmation_days=3)
-        engine.process("AAPL", vector, order, now=WEEKDAY_11H)
+        engine.process("AAPL", vector, order, now=day3)
         assert engine.states["AAPL"].confirmation_days == 3
 
 
@@ -175,12 +183,15 @@ class TestWatchingToConfirmed:
         vector = _make_vector()
         order = _make_order(confidence=0.85)
 
+        day1 = datetime(2026, 4, 1, 11, 0)
+        day2 = datetime(2026, 4, 2, 11, 0)
+
         # Day 1: NEUTRAL -> WATCHING
-        action = engine.process("AAPL", vector, order, now=WEEKDAY_11H)
+        action = engine.process("AAPL", vector, order, now=day1)
         assert action.state_after == "WATCHING"
 
         # Day 2: WATCHING -> CONFIRMED (confirmation_days reaches 2)
-        action = engine.process("AAPL", vector, order, now=WEEKDAY_11H)
+        action = engine.process("AAPL", vector, order, now=day2)
         assert action.state_after == "CONFIRMED"
 
 
@@ -191,13 +202,16 @@ class TestConfirmedToEntered:
         vector = _make_vector()
         order = _make_order(confidence=0.85)
 
+        day1 = datetime(2026, 4, 1, 11, 0)
+        day2 = datetime(2026, 4, 2, 11, 0)
+
         # Get to CONFIRMED
-        engine.process("AAPL", vector, order, now=WEEKDAY_11H)
-        engine.process("AAPL", vector, order, now=WEEKDAY_11H)
+        engine.process("AAPL", vector, order, now=day1)
+        engine.process("AAPL", vector, order, now=day2)
         assert engine.states["AAPL"].state == "CONFIRMED"
 
         # Process in trading window -> ENTERED with should_trade=True
-        action = engine.process("AAPL", vector, order, now=WEEKDAY_11H)
+        action = engine.process("AAPL", vector, order, now=day2 + timedelta(minutes=1))
         assert action.state_after == "ENTERED"
         assert action.should_trade is True
         assert action.trade_order is not None
@@ -211,13 +225,17 @@ class TestTradingWindow:
         vector = _make_vector()
         order = _make_order(confidence=0.85)
 
+        day1 = datetime(2026, 4, 1, 11, 0)
+        day2 = datetime(2026, 4, 2, 11, 0)
+        day2_08h = datetime(2026, 4, 2, 8, 0)
+
         # Get to CONFIRMED
-        engine.process("AAPL", vector, order, now=WEEKDAY_11H)
-        engine.process("AAPL", vector, order, now=WEEKDAY_11H)
+        engine.process("AAPL", vector, order, now=day1)
+        engine.process("AAPL", vector, order, now=day2)
         assert engine.states["AAPL"].state == "CONFIRMED"
 
         # Process outside window -> stays CONFIRMED, no trade
-        action = engine.process("AAPL", vector, order, now=WEEKDAY_08H)
+        action = engine.process("AAPL", vector, order, now=day2_08h)
         assert action.state_after == "CONFIRMED"
         assert action.should_trade is False
 
@@ -227,13 +245,17 @@ class TestTradingWindow:
         vector = _make_vector()
         order = _make_order(confidence=0.85)
 
+        day1 = datetime(2026, 4, 1, 11, 0)
+        day2 = datetime(2026, 4, 2, 11, 0)
+        saturday = datetime(2026, 4, 4, 11, 0)
+
         # Get to CONFIRMED
-        engine.process("AAPL", vector, order, now=WEEKDAY_11H)
-        engine.process("AAPL", vector, order, now=WEEKDAY_11H)
+        engine.process("AAPL", vector, order, now=day1)
+        engine.process("AAPL", vector, order, now=day2)
         assert engine.states["AAPL"].state == "CONFIRMED"
 
         # Process on Saturday -> stays CONFIRMED
-        action = engine.process("AAPL", vector, order, now=SATURDAY_11H)
+        action = engine.process("AAPL", vector, order, now=saturday)
         assert action.state_after == "CONFIRMED"
         assert action.should_trade is False
 
@@ -394,10 +416,14 @@ class TestSignalReversal:
         vector = _make_vector()
         order = _make_order(confidence=0.85)
 
+        day1 = datetime(2026, 4, 1, 11, 0)
+        day2 = datetime(2026, 4, 2, 11, 0)
+        day3 = datetime(2026, 4, 3, 11, 0)
+
         # Get to ENTERED
-        engine.process("AAPL", vector, order, now=WEEKDAY_11H)
-        engine.process("AAPL", vector, order, now=WEEKDAY_11H)
-        engine.process("AAPL", vector, order, now=WEEKDAY_11H)
+        engine.process("AAPL", vector, order, now=day1)
+        engine.process("AAPL", vector, order, now=day2)
+        engine.process("AAPL", vector, order, now=day3)
         assert engine.states["AAPL"].state == "ENTERED"
 
         # Now send strong negative signal
@@ -409,7 +435,7 @@ class TestSignalReversal:
             momentum_3m=-0.3,
             momentum_12m=-0.4,
         )
-        action = engine.process("AAPL", bearish_vector, order, now=WEEKDAY_11H)
+        action = engine.process("AAPL", bearish_vector, order, now=day3 + timedelta(minutes=1))
         assert action.state_after == "EXITED"
         assert action.should_trade is True
         assert action.trade_order is not None
@@ -448,14 +474,17 @@ class TestFlatOrder:
         vector = _make_vector()
         order = _make_order(confidence=0.85)
 
+        day1 = datetime(2026, 4, 1, 11, 0)
+        day2 = datetime(2026, 4, 2, 11, 0)
+
         # Get to CONFIRMED
-        engine.process("AAPL", vector, order, now=WEEKDAY_11H)
-        engine.process("AAPL", vector, order, now=WEEKDAY_11H)
+        engine.process("AAPL", vector, order, now=day1)
+        engine.process("AAPL", vector, order, now=day2)
         assert engine.states["AAPL"].state == "CONFIRMED"
 
         # Process with FLAT order -> should not trade
         flat_order = _make_order(direction="FLAT", confidence=0.3)
-        action = engine.process("AAPL", vector, flat_order, now=WEEKDAY_11H)
+        action = engine.process("AAPL", vector, flat_order, now=day2 + timedelta(minutes=1))
         assert action.should_trade is False
         assert "FLAT" in action.reason
 
@@ -467,17 +496,74 @@ class TestProcessUniverse:
         vector = _make_vector()
         order = _make_order(confidence=0.85)
 
+        day1 = datetime(2026, 4, 1, 11, 0)
+        day2 = datetime(2026, 4, 2, 11, 0)
+
         # Get AAPL to CONFIRMED then process universe
-        engine.process("AAPL", vector, order, now=WEEKDAY_11H)
-        engine.process("AAPL", vector, order, now=WEEKDAY_11H)
+        engine.process("AAPL", vector, order, now=day1)
+        engine.process("AAPL", vector, order, now=day2)
         assert engine.states["AAPL"].state == "CONFIRMED"
 
         signals: dict[str, tuple[SignalVector, TradeOrder | None]] = {
             "AAPL": (vector, order),   # CONFIRMED -> ENTERED (trade)
             "MSFT": (vector, order),   # NEUTRAL -> WATCHING (no trade)
         }
-        actions = engine.process_universe(signals, now=WEEKDAY_11H)
+        actions = engine.process_universe(signals, now=day2 + timedelta(minutes=1))
         # Only AAPL should trade
         assert len(actions) == 1
         assert actions[0].symbol == "AAPL"
         assert actions[0].should_trade is True
+
+
+class TestScalingIn:
+    def test_progressive_scaling_in(self) -> None:
+        """Test que l'engine scale in progressivement en ENTERED."""
+        params = DecisionParams(
+            min_confirmation_days=1,
+            initial_size_pct=0.02,
+            max_size_pct=0.05,
+        )
+        engine = _make_engine(params)
+        vector = _make_vector()
+        order = _make_order(confidence=0.85)
+
+        # Day 1: NEUTRAL -> WATCHING (confirmation_days=1)
+        action1 = engine.process("AAPL", vector, order, now=datetime(2026, 4, 1, 11, 0))
+        assert action1.state_after == "WATCHING"
+        assert action1.should_trade is False
+
+        # Day 2: WATCHING -> CONFIRMED (confirmation_days=2)
+        action2 = engine.process("AAPL", vector, order, now=datetime(2026, 4, 2, 11, 0))
+        assert action2.state_after == "CONFIRMED"
+        assert action2.should_trade is False
+        assert engine.states["AAPL"].confirmation_days == 2
+
+        # Day 3: CONFIRMED -> ENTERED (confirmation_days=2, size=3%)
+        # extra_days = 2 - 1 = 1. size = 0.02 + 0.01 = 0.03.
+        # Date still Day 2 (e.g. 11:30)
+        action3 = engine.process("AAPL", vector, order, now=datetime(2026, 4, 2, 11, 30))
+        assert action3.state_after == "ENTERED"
+        assert action3.should_trade is True
+        assert action3.trade_order.size_pct == pytest.approx(0.03)
+        assert engine.states["AAPL"].current_size_pct == pytest.approx(0.03)
+        assert engine.states["AAPL"].confirmation_days == 2
+
+        # Day 3: ENTERED -> ENTERED (confirmation_days=3, size=4%, delta=1%)
+        action4 = engine.process("AAPL", vector, order, now=datetime(2026, 4, 3, 11, 0))
+        assert action4.should_trade is True
+        assert action4.trade_order.size_pct == pytest.approx(0.01) # 4% - 3%
+        assert engine.states["AAPL"].current_size_pct == pytest.approx(0.04)
+        assert engine.states["AAPL"].confirmation_days == 3
+
+        # Day 4: ENTERED -> ENTERED (confirmation_days=4, size=5%, delta=1%)
+        action5 = engine.process("AAPL", vector, order, now=datetime(2026, 4, 6, 11, 0)) # Monday
+        assert action5.should_trade is True
+        assert action5.trade_order.size_pct == pytest.approx(0.01) # 5% - 4%
+        assert engine.states["AAPL"].current_size_pct == pytest.approx(0.05)
+        assert engine.states["AAPL"].confirmation_days == 4
+
+        # Day 4: ENTERED -> ENTERED (size=5%, order=False) - same day again
+        action6 = engine.process("AAPL", vector, order, now=datetime(2026, 4, 6, 11, 30))
+        assert action6.should_trade is False
+        assert engine.states["AAPL"].current_size_pct == pytest.approx(0.05)
+        assert engine.states["AAPL"].confirmation_days == 4
