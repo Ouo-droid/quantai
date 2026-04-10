@@ -4,11 +4,11 @@ Tests various financial scenarios and evaluates repo discovery.
 """
 
 import sys
-import json
 from pathlib import Path
-import pandas as pd
-import numpy as np
 from unittest.mock import MagicMock
+
+import numpy as np
+import pandas as pd
 from loguru import logger
 
 # Add root to path

@@ -19,7 +19,6 @@ import pytest
 from signals.agents.quantmuse_adapter import MLSignal, QuantMuseAdapter
 from signals.aggregator import SignalAggregator, SignalVector
 
-
 # ---------------------------------------------------------------------------
 # Fixture : prix synthétiques (500 barres daily, format OpenBB)
 # ---------------------------------------------------------------------------
