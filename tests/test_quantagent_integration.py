@@ -563,7 +563,6 @@ class TestFullGraphFlowMocked:
 
     def test_graph_setup_imports_new_modules(self):
         """graph_setup.py references DecisionJournal and RegimeRiskCalibrator."""
-        import importlib
         import pathlib
 
         src = pathlib.Path("signals/agents/quantagent/graph_setup.py").read_text()
