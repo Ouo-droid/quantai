@@ -3,8 +3,15 @@ Agent for making final trade decisions in high-frequency trading (HFT) context.
 Combines indicator, pattern, and trend reports to issue a LONG or SHORT order.
 """
 
+from decision_journal import DecisionJournal
+from regime_risk_calibrator import RegimeRiskCalibrator
 
-def create_final_trade_decider(llm):
+
+def create_final_trade_decider(
+    llm,
+    journal: DecisionJournal | None = None,
+    regime_calibrator: RegimeRiskCalibrator | None = None,
+):
     """
     Create a trade decision agent node. The agent uses LLM to synthesize indicator, pattern, and trend reports
     and outputs a final trade decision (LONG or SHORT) with justification and risk-reward ratio.
@@ -17,6 +24,16 @@ def create_final_trade_decider(llm):
         github_report = state.get("github_report", "")
         time_frame = state["time_frame"]
         stock_name = state["stock_name"]
+
+        # --- Regime risk calibration (optional) ---
+        regime_section = ""
+        if regime_calibrator is not None:
+            recent_returns = state.get("recent_returns", [])
+            if recent_returns and len(recent_returns) >= 5:
+                result, params = regime_calibrator.calibrate(recent_returns)
+                regime_section = regime_calibrator.format_regime_prompt_section(
+                    result, params
+                )
 
         # --- System prompt for LLM ---
         prompt = f"""You are a high-frequency quantitative trading (HFT) analyst operating on the current {time_frame} K-line chart for {stock_name}. Your task is to issue an **immediate execution order**: **LONG** or **SHORT**. ⚠️ HOLD is prohibited due to HFT constraints.
@@ -101,10 +118,18 @@ def create_final_trade_decider(llm):
             **GitHub Research Report**  
             {github_report}
 
+            {regime_section}
         """
 
         # --- LLM call for decision ---
         response = llm.invoke(prompt)
+
+        # --- Journal logging ---
+        if journal is not None:
+            try:
+                journal.record(state, response.content)
+            except Exception:
+                pass  # best-effort logging
 
         return {
             "final_trade_decision": response.content,

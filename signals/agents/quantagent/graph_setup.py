@@ -1,12 +1,14 @@
 
 from agent_state import IndicatorAgentState
 from decision_agent import create_final_trade_decider
+from decision_journal import DecisionJournal
 from github_agent import create_github_agent
 from graph_util import TechnicalTools
 from indicator_agent import create_indicator_agent
 from langchain_openai import ChatOpenAI
 from langgraph.graph import END, START, StateGraph
 from pattern_agent import create_pattern_agent
+from regime_risk_calibrator import RegimeRiskCalibrator
 from trend_agent import create_trend_agent
 
 
@@ -47,8 +49,12 @@ class SetGraph:
         # create nodes for github research agent
         agent_nodes["github"] = create_github_agent(self.graph_llm)
 
-        # create nodes for decision agent
-        decision_agent_node = create_final_trade_decider(self.graph_llm)
+        # create nodes for decision agent (with journal logging + regime calibration)
+        journal = DecisionJournal()
+        regime_calibrator = RegimeRiskCalibrator()
+        decision_agent_node = create_final_trade_decider(
+            self.graph_llm, journal=journal, regime_calibrator=regime_calibrator
+        )
 
         # create graph
         graph = StateGraph(IndicatorAgentState)

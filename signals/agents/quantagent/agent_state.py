@@ -66,6 +66,12 @@ class IndicatorAgentState(TypedDict):
         "List of discovered GitHub repository dicts with keys: name, full_name, description, stars, language, url, updated_at",
     ]
 
+    # Risk calibration
+    recent_returns: Annotated[
+        list[float],
+        "Recent daily returns used for regime detection and risk calibration",
+    ]
+
     # Final analysis and messaging context
     analysis_results: Annotated[str, "Computed result of the analysis or decision"]
     messages: Annotated[
