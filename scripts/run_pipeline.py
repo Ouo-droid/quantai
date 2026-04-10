@@ -251,14 +251,23 @@ def main() -> None:
 
     t_start = time.perf_counter()
 
-    # Collecter tous les signaux
+    # 1. Recuperer etat du compte Alpaca
+    account = router.get_account() if router.is_available() else None
+    account_equity = account["equity"] if account else args.capital
+    positions = router.get_positions() if router.is_available() else []
+
+    # 2. Collecter tous les signaux (Layer 1 & 2)
     signals: dict = {}
     results: list[dict] = []
+    prices_cache: dict = {}
+
     for symbol in symbols:
         try:
             prices = client.ohlcv(symbol, start="2022-01-01")
+            prices_cache[symbol] = prices
             news = client.news(symbol, limit=10) if args.mirofish else []
 
+            # Layer 1 -- Signal (Quantitative)
             vector = agg.compute(
                 prices,
                 symbol=symbol,
@@ -267,60 +276,82 @@ def main() -> None:
                 mirofish_news=news if args.mirofish else None,
             )
 
-            account = router.get_account() if router.is_available() else None
-            account_equity = account["equity"] if account else args.capital
+            # Optimization: Decision Agent (Claude) is Layer 2.
+            # Only call LLM if already watching/entered OR if quant signal is interesting.
+            state = engine.states.get(symbol)
+            is_active = state and state.state != "NEUTRAL"
+            is_interesting = vector.composite_score is not None and abs(vector.composite_score) >= 0.2
 
-            portfolio = Portfolio(cash=account_equity)
-            recent_returns = list(prices["close"].pct_change().dropna().values[-252:])
-            portfolio.equity_history = [
-                account_equity * (1 + r) for r in [0.0] + recent_returns[-99:]
-            ]
-
-            order = agent.decide_with_risk(
-                vector,
-                portfolio,
-                recent_returns=recent_returns,
-                limits=RiskLimits(
-                    max_position_pct=0.05,
-                    daily_var_95=0.02,
-                    max_drawdown=0.15,
-                    min_confidence=0.60,
-                ),
-            )
+            if is_active or is_interesting:
+                order = agent.decide(vector)
+                cs = f"{vector.composite_score:+.3f}" if vector.composite_score is not None else "N/A"
+                print(f"\n  {symbol}: composite={cs} -> {order.direction} (conf={order.confidence:.2f})")
+            else:
+                # Quant signal too weak to start WATCHING, skip Claude
+                order = None
+                print(f"\n  {symbol}: composite={vector.composite_score:+.3f} -> SKIP (signal weak)")
 
             signals[symbol] = (vector, order)
-
-            cs = f"{vector.composite_score:+.3f}" if vector.composite_score is not None else "N/A"
-            ml = f"{vector.ml_prediction:+.3f}" if vector.ml_prediction is not None else "N/A"
-            direction = order.direction if order else "BLOCKED"
-            confidence = f"{order.confidence:.2f}" if order else "N/A"
-            print(f"\n  {symbol}: composite={cs} ml={ml} -> {direction} (conf={confidence})")
 
         except Exception as e:
             logger.error(f"{symbol} pipeline error: {e}")
             results.append({"symbol": symbol, "status": "error", "error": str(e)})
 
-    # Decision temporelle
+    # 3. Decision temporelle (Layer 3)
     actions = engine.process_universe(signals)
 
-    # Executer seulement les actions autorisees
+    # 4. Validation finale Risque (Layer 4) & Execution (Layer 5)
+    risk_limits = RiskLimits(
+        max_position_pct=0.05,
+        daily_var_95=0.02,
+        max_drawdown=0.15,
+        min_confidence=0.70,  # Plus strict pour la decision temporelle
+    )
+
     for action in actions:
         separator = "_" * 55
         print(f"\n{separator}")
         print(f"  {action}")
-        if not args.dry_run and router.is_available() and action.trade_order is not None:
-            account = router.get_account()
-            account_value = account["equity"] if account else args.capital
-            fill = router.submit(action.trade_order, action.symbol, account_value)
-            if fill:
-                print(f"  -> ORDRE SOUMIS : {fill}")
-                results.append({"symbol": action.symbol, "status": "submitted", "fill": str(fill)})
+
+        if not action.should_trade or action.trade_order is None:
+            continue
+
+        symbol = action.symbol
+        prices = prices_cache.get(symbol)
+        if prices is None:
+            continue
+
+        # Preparer RiskEngine avec positions reelles
+        # account_equity = cash + positions. On utilise cash pour le Portfolio
+        # pour que Portfolio.total_equity (cash + abs(positions)) soit correct.
+        cash = account["cash"] if account else account_equity
+        portfolio = Portfolio(cash=cash)
+        for p in positions:
+            portfolio.positions[p["symbol"]] = p["market_val"] if p["side"] == "long" else -p["market_val"]
+
+        recent_returns = list(prices["close"].pct_change().dropna().values[-252:])
+        portfolio.equity_history = [
+            account_equity * (1 + r) for r in [0.0] + recent_returns[-99:]
+        ]
+
+        risk_engine = RiskEngine(portfolio, risk_limits)
+        final_order = risk_engine.validate(action.trade_order, recent_returns=recent_returns)
+
+        if final_order:
+            if not args.dry_run and router.is_available():
+                fill = router.submit(final_order, symbol, account_equity)
+                if fill:
+                    print(f"  -> ORDRE SOUMIS : {fill}")
+                    results.append({"symbol": symbol, "status": "submitted", "fill": str(fill)})
+                else:
+                    print("  -> Ordre non soumis (erreur)")
+                    results.append({"symbol": symbol, "status": "failed"})
             else:
-                print("  -> Ordre non soumis (indisponible ou erreur)")
-                results.append({"symbol": action.symbol, "status": "failed"})
+                print(f"  -> DRY RUN : {final_order.direction} size={final_order.size_pct:.1%}")
+                results.append({"symbol": symbol, "status": "dry_run"})
         else:
-            print("  -> DRY RUN")
-            results.append({"symbol": action.symbol, "status": "dry_run"})
+            print("  -> BLOQUE par RiskEngine")
+            results.append({"symbol": symbol, "status": "blocked"})
 
     # Afficher le statut mis a jour
     print("\n=== ETAT DES SIGNAUX (apres) ===")

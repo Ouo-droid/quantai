@@ -89,11 +89,13 @@ class SignalState:
     entry_date: str | None = None
     exit_date: str | None = None        # date de sortie pour cooling off
 
-    def days_watching(self) -> int:
+    def days_watching(self, now: datetime | None = None) -> int:
         if self.first_signal_date is None:
             return 0
+        if now is None:
+            now = datetime.now()
         first = datetime.fromisoformat(self.first_signal_date)
-        return (datetime.now() - first).days
+        return (now - first).days
 
     def to_dict(self) -> dict[str, Any]:
         """Serialisable JSON pour persistance."""
@@ -405,13 +407,17 @@ class TemporalDecisionEngine:
 
         # ----- ENTERED -----
         if state.state == "ENTERED":
-            # Check for signal reversal
-            if composite is not None and state.direction is not None:
+            # Check for signal consistency/reversal
+            is_consistent = self._is_signal_consistent(state, vector, direction)
+
+            if not is_consistent:
+                # Check for explicit reversal
                 reversal = False
-                if state.direction == "LONG" and composite < -0.2:
-                    reversal = True
-                elif state.direction == "SHORT" and composite > 0.2:
-                    reversal = True
+                if composite is not None and state.direction is not None:
+                    if state.direction == "LONG" and composite < -0.2:
+                        reversal = True
+                    elif state.direction == "SHORT" and composite > 0.2:
+                        reversal = True
 
                 if reversal:
                     close_dir: Direction = "SHORT" if state.direction == "LONG" else "LONG"
@@ -435,11 +441,59 @@ class TemporalDecisionEngine:
                         n_signals_aligned=n_aligned,
                     )
 
+                # Not a hard reversal, but signal lost -> keep position but stop scaling in?
+                # For now, just continue holding.
+                return DecisionAction(
+                    symbol=symbol,
+                    state_before=state_before,
+                    state_after="ENTERED",
+                    reason="signal weak but holding position",
+                    n_signals_aligned=n_aligned,
+                )
+
+            # Signal is consistent: increment confirmation if date changed
+            if state.last_signal_date:
+                last_dt = datetime.fromisoformat(state.last_signal_date)
+                if now.date() > last_dt.date():
+                    state.confirmation_days += 1
+                    logger.info(f"[{symbol}] Confirmation incremented: day {state.confirmation_days}")
+            else:
+                # Should not happen as last_signal_date is set when entering WATCHING
+                state.confirmation_days = 1
+
+            state.last_signal_date = now.isoformat()
+
+            if self._is_in_trading_window(now):
+                target_size = self._compute_size(state)
+                if target_size > state.current_size_pct + 0.001:  # small epsilon
+                    delta_size = target_size - state.current_size_pct
+                    entry_dir = cast(Direction, state.direction)
+                    scale_order = TradeOrder(
+                        symbol=symbol,
+                        direction=entry_dir,
+                        confidence=confidence,
+                        size_pct=delta_size,
+                        stop_loss=order.stop_loss if order else 0.02,
+                        take_profit=order.take_profit if order else 0.04,
+                        rationale=f"Scaling in: day {state.confirmation_days}, adding {delta_size:.1%}",
+                    )
+                    state.current_size_pct = target_size
+                    logger.info(f"[{symbol}] ENTERED: scaling in +{delta_size:.1%} (total={target_size:.1%})")
+                    return DecisionAction(
+                        symbol=symbol,
+                        state_before=state_before,
+                        state_after="ENTERED",
+                        should_trade=True,
+                        trade_order=scale_order,
+                        reason=f"scaling in (total {target_size:.1%})",
+                        n_signals_aligned=n_aligned,
+                    )
+
             return DecisionAction(
                 symbol=symbol,
                 state_before=state_before,
                 state_after="ENTERED",
-                reason="position held",
+                reason=f"position held, day {state.confirmation_days}",
                 n_signals_aligned=n_aligned,
             )
 
@@ -509,7 +563,7 @@ class TemporalDecisionEngine:
                 )
 
             # Check max watching days
-            if state.days_watching() > self.params.max_watching_days:
+            if state.days_watching(now) > self.params.max_watching_days:
                 self._reset_state(state)
                 logger.info(f"[{symbol}] WATCHING->NEUTRAL (max watching days exceeded)")
                 return DecisionAction(
@@ -520,8 +574,13 @@ class TemporalDecisionEngine:
                     n_signals_aligned=n_aligned,
                 )
 
-            # Signal still consistent — increment confirmation
-            state.confirmation_days += 1
+            # Signal still consistent — increment confirmation if date changed
+            if state.last_signal_date:
+                last_dt = datetime.fromisoformat(state.last_signal_date)
+                if now.date() > last_dt.date():
+                    state.confirmation_days += 1
+                    logger.info(f"[{symbol}] Confirmation incremented: day {state.confirmation_days}")
+
             state.last_signal_date = now.isoformat()
 
             if (
