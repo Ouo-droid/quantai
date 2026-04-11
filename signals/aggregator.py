@@ -31,6 +31,11 @@ from .factors.momentum import (
     TrendStrength,
     composite_momentum,
 )
+from .factors.risk_metrics import (
+    KurtosisFactor,
+    SkewnessFactor,
+    TailRatioFactor,
+)
 from .factors.value_quality_vol import (
     QualityFactor,
     ValueFactor,
@@ -64,6 +69,11 @@ class SignalVector:
     quality: float | None = None
     low_volatility: float | None = None
 
+    # Moments d'ordre supérieur (Quantopian 2016)
+    skewness: float | None = None
+    kurtosis: float | None = None
+    tail_ratio: float | None = None
+
     # Enrichissement externe (rempli plus tard)
     mirofish_sentiment: float | None = None   # MiroFish
     agent_bias: float | None = None           # QuantAgent
@@ -95,6 +105,9 @@ class SignalVector:
         lines.append(f"  value                : {_fmt(self.value)}")
         lines.append(f"  quality              : {_fmt(self.quality)}")
         lines.append(f"  low_volatility       : {_fmt(self.low_volatility)}")
+        lines.append(f"  skewness             : {_fmt(self.skewness)}")
+        lines.append(f"  kurtosis             : {_fmt(self.kurtosis)}")
+        lines.append(f"  tail_ratio           : {_fmt(self.tail_ratio)}")
         lines.append("")
         lines.append("EXTERNE")
         lines.append(f"  mirofish_sentiment   : {_fmt(self.mirofish_sentiment)}")
@@ -184,6 +197,9 @@ class SignalAggregator:
             "value": ValueFactor(),
             "quality": QualityFactor(),
             "low_volatility": VolatilityFactor(),
+            "skewness": SkewnessFactor(),
+            "kurtosis": KurtosisFactor(),
+            "tail_ratio": TailRatioFactor(),
         }
 
     def compute(

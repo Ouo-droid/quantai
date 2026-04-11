@@ -367,26 +367,26 @@ class WebTradingAnalyzer:
         final_state = results["final_state"]
 
         # Extract analysis results from state fields
-        technical_indicators = final_state.get("indicator_report", "")
-        pattern_analysis = final_state.get("pattern_report", "")
-        trend_analysis = final_state.get("trend_report", "")
-        final_decision_raw = final_state.get("final_trade_decision", "")
+        technical_indicators: str = final_state.get("indicator_report", "")
+        pattern_analysis: str = final_state.get("pattern_report", "")
+        trend_analysis: str = final_state.get("trend_report", "")
+        final_trade_decision: str = final_state.get("final_trade_decision", "")
 
         # Extract chart data if available
-        pattern_chart = final_state.get("pattern_image", "")
-        trend_chart = final_state.get("trend_image", "")
+        pattern_chart: str = final_state.get("pattern_image", "")
+        trend_chart: str = final_state.get("trend_image", "")
         pattern_image_filename = final_state.get("pattern_image_filename", "")
         trend_image_filename = final_state.get("trend_image_filename", "")
 
         # Parse final decision
-        final_decision = ""
-        if final_decision_raw:
+        final_decision: Any = ""
+        if final_trade_decision:
             try:
                 # Try to extract JSON from the decision
-                start = final_decision_raw.find("{")
-                end = final_decision_raw.rfind("}") + 1
+                start = final_trade_decision.find("{")
+                end = final_trade_decision.rfind("}") + 1
                 if start != -1 and end != 0:
-                    json_str = final_decision_raw[start:end]
+                    json_str = final_trade_decision[start:end]
                     decision_data = json.loads(json_str)
                     final_decision = {
                         "decision": decision_data.get("decision", "N/A"),
@@ -400,10 +400,10 @@ class WebTradingAnalyzer:
                     }
                 else:
                     # If no JSON found, return the raw text
-                    final_decision = {"raw": final_decision_raw}
+                    final_decision = {"raw": final_trade_decision}
             except json.JSONDecodeError:
                 # If JSON parsing fails, return the raw text
-                final_decision = {"raw": final_decision_raw}
+                final_decision = {"raw": final_trade_decision}
 
         return {
             "success": True,
@@ -488,7 +488,7 @@ class WebTradingAnalyzer:
         except ValueError as e:
             return {"valid": False, "error": f"Invalid date/time format: {str(e)}"}
 
-    def validate_api_key(self, provider: str = None) -> dict[str, Any]:
+    def validate_api_key(self, provider: str | None = None) -> dict[str, Any]:
         """Validate the current API key by making a simple test call."""
         try:
             # Get provider from config if not provided
@@ -1049,7 +1049,7 @@ def get_image(image_type):
 
 
 @app.route("/api/validate-api-key", methods=["POST"])
-def validate_api_key():
+def validate_api_key_endpoint():
     """API endpoint to validate the current API key."""
     try:
         data = request.get_json() or {}
