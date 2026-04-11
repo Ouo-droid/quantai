@@ -59,7 +59,7 @@ uv run pytest tests/ -v
 quantai/
 ├── data/              # Client OpenBB unifié
 ├── signals/
-│   ├── factors/       # Momentum, value, quality, vol
+│   ├── factors/       # Momentum, value, quality, vol, risk_metrics
 │   └── agents/        # QuantAgent (LangGraph)
 ├── simulation/        # MiroFish stress scenarios
 ├── execution/         # Risk engine + C++ router
@@ -67,6 +67,14 @@ quantai/
 ├── research/          # Notebooks reproductibles
 └── tests/
 ```
+
+## Stratégies & Recherche (Français)
+
+QuantAI intègre les dernières avancées de la recherche quantitative, notamment les conclusions de l'étude **Quantopian (2016)** : *All that Glitters Is Not Gold*.
+
+Pour comprendre le fonctionnement détaillé de l'application, l'intégration de nouvelles stratégies et les métriques de performance optimales (Moments d'ordre supérieur, ML non-linéaire), consultez notre guide dédié :
+
+👉 **[GUIDE_STRATEGIES.md](GUIDE_STRATEGIES.md)**
 
 ## Research notebooks
 
