@@ -1,8 +1,10 @@
-import pytest
-import pandas as pd
 import numpy as np
-from signals.factors.risk_metrics import SkewnessFactor, KurtosisFactor, TailRatioFactor
+import pandas as pd
+import pytest
+
 from signals.aggregator import SignalAggregator
+from signals.factors.risk_metrics import KurtosisFactor, SkewnessFactor, TailRatioFactor
+
 
 @pytest.fixture
 def sample_prices():

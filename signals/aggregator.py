@@ -31,15 +31,15 @@ from .factors.momentum import (
     TrendStrength,
     composite_momentum,
 )
+from .factors.risk_metrics import (
+    KurtosisFactor,
+    SkewnessFactor,
+    TailRatioFactor,
+)
 from .factors.value_quality_vol import (
     QualityFactor,
     ValueFactor,
     VolatilityFactor,
-)
-from .factors.risk_metrics import (
-    SkewnessFactor,
-    KurtosisFactor,
-    TailRatioFactor,
 )
 
 # ---------------------------------------------------------------------------
