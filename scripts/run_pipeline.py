@@ -28,7 +28,7 @@ load_dotenv()
 from data.client import OpenBBClient
 from execution.decision_agent import DecisionAgent
 from execution.decision_logic import DecisionParams, TemporalDecisionEngine
-from execution.risk import Portfolio, RiskLimits
+from execution.risk import Portfolio, RiskEngine, RiskLimits
 from execution.router import AlpacaRouter
 from signals.aggregator import SignalAggregator
 
