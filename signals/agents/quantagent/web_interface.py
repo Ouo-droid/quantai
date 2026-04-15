@@ -379,7 +379,7 @@ class WebTradingAnalyzer:
         trend_image_filename = final_state.get("trend_image_filename", "")
 
         # Parse final decision
-        final_decision = ""
+        final_decision: Any = ""
         if final_decision_raw:
             try:
                 # Try to extract JSON from the decision
@@ -488,7 +488,7 @@ class WebTradingAnalyzer:
         except ValueError as e:
             return {"valid": False, "error": f"Invalid date/time format: {str(e)}"}
 
-    def validate_api_key(self, provider: str = None) -> dict[str, Any]:
+    def validate_api_key(self, provider: str | None = None) -> dict[str, Any]:
         """Validate the current API key by making a simple test call."""
         try:
             # Get provider from config if not provided
