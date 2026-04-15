@@ -20,6 +20,10 @@ data/cache/
 .uv/
 uv.lock
 
+# Coverage
+.coverage
+htmlcov/
+
 # IDE
 .vscode/
 .idea/
