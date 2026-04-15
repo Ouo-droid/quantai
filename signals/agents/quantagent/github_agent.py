@@ -41,7 +41,7 @@ def _search_github_repos(
     if token:
         headers["Authorization"] = f"Bearer {token}"
 
-    params = {"q": query, "sort": sort, "order": order, "per_page": max_results}
+    params: dict[str, Any] = {"q": query, "sort": sort, "order": order, "per_page": max_results}
 
     try:
         resp = httpx.get(_GITHUB_SEARCH_URL, headers=headers, params=params, timeout=10)

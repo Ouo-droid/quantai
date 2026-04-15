@@ -1,6 +1,6 @@
 import base64
 import io
-from typing import Annotated
+from typing import Annotated, Any
 
 import color_style as color
 import matplotlib
@@ -15,7 +15,7 @@ matplotlib.use("Agg")
 
 
 # helper function for trending graph
-def check_trend_line(support: bool, pivot: int, slope: float, y: np.array):
+def check_trend_line(support: bool, pivot: int, slope: float, y: Any):
     # compute sum of differences between line and prices,
     # return negative val if invalid
 
@@ -37,7 +37,7 @@ def check_trend_line(support: bool, pivot: int, slope: float, y: np.array):
     return err
 
 
-def optimize_slope(support: bool, pivot: int, init_slope: float, y: np.array):
+def optimize_slope(support: bool, pivot: int, init_slope: float, y: Any):
     # Amount to change slope by. Multiplyed by opt_step
     slope_unit = (y.max() - y.min()) / len(y)
 
@@ -52,7 +52,7 @@ def optimize_slope(support: bool, pivot: int, init_slope: float, y: np.array):
     assert best_err >= 0.0  # Shouldn't ever fail with initial slope
 
     get_derivative = True
-    derivative = None
+    derivative = 0.0
     while curr_step > min_step:
 
         if get_derivative:
@@ -93,7 +93,7 @@ def optimize_slope(support: bool, pivot: int, init_slope: float, y: np.array):
     return (best_slope, -best_slope * pivot + y.iloc[pivot])
 
 
-def fit_trendlines_single(data: np.array):
+def fit_trendlines_single(data: Any):
     # find line of best fit (least squared)
     # coefs[0] = slope,  coefs[1] = intercept
     x = np.arange(len(data))
@@ -113,7 +113,7 @@ def fit_trendlines_single(data: np.array):
     return (support_coefs, resist_coefs)
 
 
-def fit_trendlines_high_low(high: np.array, low: np.array, close: np.array):
+def fit_trendlines_high_low(high: Any, low: Any, close: Any):
     x = np.arange(len(close))
     coefs = np.polyfit(x, close, 1)
     # coefs[0] = slope,  coefs[1] = intercept
